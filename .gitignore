@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/sequalized
+sequalized.so
+sequalized.dylib
+sequalized.dll
+sequalized.a
+sequalized.lib
+sequalized-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
