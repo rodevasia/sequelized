@@ -3,5 +3,8 @@
         "lflags",
         "LIBPATH",
         "sequalized"
+    ],
+    "dscanner.ignoredKeys": [
+        "dscanner.style.phobos_naming_convention"
     ]
 }

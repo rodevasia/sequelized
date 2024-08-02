@@ -1,10 +1,13 @@
+import std.string;
+import std.bitmanip;
+
 import std.stdio;
-import arsd.postgres;
 import std.format;
-import postgres._internal.connection : DatabaseConnectionOption, PGSQLConnectionManager;
+// import postgres._internal.connection : DatabaseConnectionOption, PGSQLConnectionManager;
 import postgres.model : Model, Schema;
 import postgres._internal.consts;
 
+import postgres.implementation.core;
 void main()
 {
 	try
@@ -26,23 +29,24 @@ void main()
 		options.idle_in_transaction_session_timeout = 0;
 		options.connectionTimeoutMillis = 0;
 		options.lock_timeout = 0;
-		PGSQLConnectionManager manager = new PGSQLConnectionManager(options);
-
-		User user = new User(manager);
-		Post post = new Post(manager);
+		Postgres c = new Postgres(options);
+		
+		User user = new User(c);
+		// Post post = new Post(manager);
 		user.name = "John";
-		user.age = 25;
-		// user.insert();
-		WhereClause exp= WhereClause();
-		user.update([exp.equals("id", 1),exp.equals("name", "John")]);
-		// user.sync();
-		// post.sync();
+		// user.age = 25;
+		writeln(user.insert());
+		// WhereClause exp= WhereClause();
+		// user.update([exp.equals("id", 1),exp.equals("name", "John")]);
+		// // user.sync();
+		// // post.sync();
 
 	}
-	catch (Exception e)
+	catch (PGSqlException e)
 	{
-		writeln(e.msg);
+		writeln(e);
 	}
+
 }
 
 class User : Schema
@@ -59,9 +63,9 @@ class User : Schema
 	// @Unique()
 	string name=null;
 
-	@Type(DataTypes.NUMERIC)
-	@NotNull()
-	int age;
+	// @Type(DataTypes.NUMERIC)
+	// @NotNull()
+	// int age;
 }
 
 class Post
@@ -87,3 +91,4 @@ class Post
 	long userId;
 
 }
+

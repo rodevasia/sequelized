@@ -1,7 +1,6 @@
 module postgres.model;
 
-import postgres._internal.connection : DatabaseConnectionOption, PGSQLConnectionManager;
-import arsd.postgres;
+
 import std.stdio;
 import postgres._internal.consts;
 import std.traits;
@@ -10,30 +9,24 @@ import postgres._internal.exceptions;
 import core.stdcpp.type_traits;
 import core.cpuid;
 import std.variant;
+import postgres.implementation.core:Postgres,QueryResult;
+import postgres.implementation.exception;
 
 interface Schema
 {
 }
 
-// public mixin template ToArgs()
-// {
 
-//     string args = "";
-//     // foreach (index, value; values){
-//     //     args ~= i"$(index),".text;
-//     // }
-//     mixin("query(sql, " ~ argsString ~ ");");
-// }
 
 mixin template Model()
 {
 
-    private PGSQLConnectionManager manager;
+    private Postgres manager;
     private ModelMetaData meta = ModelMetaData();
     private string[] reservedMembers = ["manager", "meta", "reservedMembers"];
-    this(PGSQLConnectionManager manager,)
+    this(Postgres m)
     {
-        this.manager = manager;
+        this.manager = m;
         // this.logging = loggin;
         this.generateMeta();
     }
@@ -51,7 +44,7 @@ mixin template Model()
 
             writeln(i"Executing query: $(query)".text);
 
-            auto r = this.manager.db.query(query);
+            auto r = this.manager.query(query);
 
             // Need to fix the logging implementation based on NOTICES, WARNINGS
             string log = i"Table `$(this.meta.tableName)` created successfully".text;
@@ -88,7 +81,6 @@ mixin template Model()
 
     auto insert()
     {
-        import arsd.database : DatabaseException;
 
         try
         {
@@ -99,19 +91,17 @@ mixin template Model()
 
             auto query = insertQueryGenerator();
             string sql = query[0];
-            auto re = this.manager.db.query(sql, query[1 .. $]);
-            int result = 0;
-            foreach (key; re)
-            {
-                result = key[0].to!int;
-            }
+            string name = i"insert_$(this.meta.tableName)_statement".text;
+            QueryResult re = this.manager.executePreparedStatement(name,sql, query[1 .. $]);
+
+            int result = re.rows[0]["id"].to!int;
+            
             return result;
         }
-        catch (DatabaseException e)
+        catch (PGSqlException e)
         {
-            // writeln(e.msg);
-            // writeln(typeof(e).stringof);
-            throw e;
+            writeln(e.code);
+            return 0;
         }
     }
 
@@ -129,7 +119,7 @@ mixin template Model()
         import std.typecons;
 
         auto autoIncrementals = this.meta.autoIncrementals;
-
+        int argIndex=1;
         // writeln(this.tupleof);
         foreach (index, member; this.tupleof)
         {
@@ -160,8 +150,8 @@ mixin template Model()
                     continue;
                 }
                 column ~= i"$(col), ".text;
-                values ~= "?,";
-
+                values ~= i" $$(argIndex),".text;
+                argIndex++;
             }
         }
         if (column.length == 0)
@@ -187,7 +177,7 @@ mixin template Model()
 
     auto update(WhereClause[] where)
     {
-        import arsd.database : DatabaseException;
+        // import arsd.database : DatabaseException;
 
         try
         {
@@ -197,14 +187,17 @@ mixin template Model()
             import std.typecons;
 
             auto query = updateQueryGenerator(where);
-            string sql = query[0];
+            string sql = query[0].to!string;
             writeln(query);
            
             string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
             
             string prepareStmt = i"PREPARE $(prepareStmtName) AS $(sql)".text;
-            //  alias s =  this.manager.db.executePreparedStatement!("test",1);
-            auto re = this.manager.db.query(sql, query[1 .. $]);
+            
+            
+             
+            // auto re = this.manager.db.query(sql, query[1 .. $]);
+
 
             // writeln(re);
             // int result = 0;
@@ -214,7 +207,7 @@ mixin template Model()
             // }
             // return result;
         }
-        catch (DatabaseException e)
+        catch (Exception e)
         {
             writeln(e.msg);
             // writeln(typeof(e).stringof);
@@ -329,7 +322,7 @@ mixin template Model()
         {
             import postgres._internal.helpers : toSnakeCase;
 
-            if (!is(typeof(field) == PGSQLConnectionManager)
+            if (!is(typeof(field) == Postgres)
                 && !is(typeof(field) == ModelMetaData))
             {
 

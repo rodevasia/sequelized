@@ -3,10 +3,7 @@
 		"Robert Devasia"
 	],
 	"copyright": "Copyright © 2024, Robert Devasia",
-	"dependencies": {
-		"arsd-official:postgres": "~>11.4.2"
-	},
-	"description": "A simple orm ",
+	"description": "A  postgres simple orm ",
 	"libs": [ "pq" ],
     "lflags-windows-x86_64": [ "-LIBPATH:C:/Program Files/PostgreSQL/16/lib/" ],
     "copyFiles-windows-x86_64": [
