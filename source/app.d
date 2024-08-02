@@ -3,11 +3,13 @@ import std.bitmanip;
 
 import std.stdio;
 import std.format;
+
 // import postgres._internal.connection : DatabaseConnectionOption, PGSQLConnectionManager;
 import postgres.model : Model, Schema;
 import postgres._internal.consts;
 
 import postgres.implementation.core;
+
 void main()
 {
 	try
@@ -30,15 +32,16 @@ void main()
 		options.connectionTimeoutMillis = 0;
 		options.lock_timeout = 0;
 		Postgres c = new Postgres(options);
-		
-		User user = new User(c);
+
+		Users user = new Users(c);
 		// Post post = new Post(manager);
-		user.name = "John";
+		// user.name = "John";
 		// user.age = 25;
-		writeln(user.insert());
-		// WhereClause exp= WhereClause();
-		// user.update([exp.equals("id", 1),exp.equals("name", "John")]);
-		// // user.sync();
+		// writeln(user.insert());
+		WhereClause exp = new WhereClause();
+		user.name ="John";
+		user.update(Seperater.AND, exp.eq("id", 1), exp.eq("name", "John"));
+		// user.sync();
 		// // post.sync();
 
 	}
@@ -49,7 +52,7 @@ void main()
 
 }
 
-class User : Schema
+class Users : Schema
 {
 	mixin Model;
 
@@ -60,8 +63,8 @@ class User : Schema
 
 	@Type(DataTypes.VARCHAR)
 	@NotNull()
-	// @Unique()
-	string name=null;
+	 // @Unique()
+	string name = null;
 
 	// @Type(DataTypes.NUMERIC)
 	// @NotNull()
@@ -91,4 +94,3 @@ class Post
 	long userId;
 
 }
-

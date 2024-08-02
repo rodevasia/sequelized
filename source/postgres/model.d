@@ -1,6 +1,5 @@
 module postgres.model;
 
-
 import std.stdio;
 import postgres._internal.consts;
 import std.traits;
@@ -9,14 +8,14 @@ import postgres._internal.exceptions;
 import core.stdcpp.type_traits;
 import core.cpuid;
 import std.variant;
-import postgres.implementation.core:Postgres,QueryResult;
+import postgres.implementation.core : Postgres, QueryResult;
 import postgres.implementation.exception;
+import std.meta : Repeat;
+import std.typecons : Tuple;
 
 interface Schema
 {
 }
-
-
 
 mixin template Model()
 {
@@ -92,10 +91,10 @@ mixin template Model()
             auto query = insertQueryGenerator();
             string sql = query[0];
             string name = i"insert_$(this.meta.tableName)_statement".text;
-            QueryResult re = this.manager.executePreparedStatement(name,sql, query[1 .. $]);
+            QueryResult re = this.manager.executePreparedStatement(name, sql, query[1 .. $]);
 
             int result = re.rows[0]["id"].to!int;
-            
+
             return result;
         }
         catch (PGSqlException e)
@@ -119,7 +118,7 @@ mixin template Model()
         import std.typecons;
 
         auto autoIncrementals = this.meta.autoIncrementals;
-        int argIndex=1;
+        int argIndex = 1;
         // writeln(this.tupleof);
         foreach (index, member; this.tupleof)
         {
@@ -175,48 +174,41 @@ mixin template Model()
         return tuple(q) ~ setValue;
     }
 
-    auto update(WhereClause[] where)
+    auto update(WhereClause...)(Seperater sep, WhereClause where)
     {
-        // import arsd.database : DatabaseException;
+        import std.conv;
+        import std.meta;
+        import std.typecons;
 
-        try
+        if (where.length > 0)
         {
-
-            import std.conv;
-            import std.meta;
-            import std.typecons;
-
-            auto query = updateQueryGenerator(where);
-            string sql = query[0].to!string;
-            writeln(query);
-           
-            string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
-            
-            string prepareStmt = i"PREPARE $(prepareStmtName) AS $(sql)".text;
-            
-            
-             
-            // auto re = this.manager.db.query(sql, query[1 .. $]);
-
-
-            // writeln(re);
-            // int result = 0;
-            // foreach (key; re)
-            // {
-            //     result = key[0].to!int;
-            // }
-            // return result;
+            foreach (idx, _; where)
+            {
+                assert(to!string(where[idx]) == "postgres._internal.consts.WhereClause", "Invalid where clause");
+            }
         }
-        catch (Exception e)
+        auto query = updateQueryGenerator(sep, where[0 .. $]);
+        string sql = query[0];
+
+        string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
+
+        auto re = this.manager.executePreparedStatement(prepareStmtName, sql, query[1 .. $]);
+
+        if (re.rows.length > 0)
         {
-            writeln(e.msg);
-            // writeln(typeof(e).stringof);
-            // throw e;
+            return re.rows[0]["updated"] == "t";
         }
+        else
+        {
+            return false;
+        }
+
     }
 
-    private auto updateQueryGenerator(WhereClause[] where)
+    auto updateQueryGenerator(WhereClause...)(
+        Seperater sep, WhereClause where)
     {
+
         import std.algorithm : canFind;
         import std.conv;
         import std.json;
@@ -224,17 +216,20 @@ mixin template Model()
         import std.array;
 
         string tableName = this.meta.tableName;
-        string aliasString = "t"; // Adjust alias if necessary
         string primaryKey = this.meta.primaryKey;
-        string q = i`UPDATE "$(tableName)" AS $(aliasString) SET `.text;
+        string q = i`UPDATE "$(tableName)" SET `.text;
 
         string setClause = "";
         string fromClause = "";
-        string whereClause = generateWhereClause(where);
-        string returningClause = "";
 
         auto autoIncrementals = this.meta.autoIncrementals;
-        int pos =1;
+        int pos = 1;
+
+        // Handling values
+        auto t = this.tupleof;
+        Tuple!(typeof(t)) tup = tuple(t);
+        auto setValue = tup.slice!(4, tup.length); // Adjust slicing based on actual structure
+
         foreach (index, member; this.tupleof)
         {
             string col = __traits(identifier, this.tupleof[index]);
@@ -265,7 +260,7 @@ mixin template Model()
                     continue;
                 }
 
-                setClause ~= i" $(aliasString).$(col)=\$$(pos),".text;
+                setClause ~= i" $(col) = $$(pos),".text;
                 pos++;
             }
         }
@@ -288,23 +283,25 @@ mixin template Model()
         }
 
         // Optional WHERE clause
-        if (whereClause.length > 0)
+        if (where.length > 0)
         {
-            q ~= i" WHERE $(whereClause)".text;
+
+            auto whereClause = generateWhereClause(sep, pos, where[0 .. $]);
+            string whereQuery = whereClause[0];
+            // writeln(whereClause);
+            q ~= i" WHERE $(whereQuery)".text;
+            q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
+            return tuple(q) ~ setValue ~ tuple(whereClause[1 .. $]);
         }
 
-     
-           q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
-        
+        q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
 
-        // q ~= i" WHERE $(alias).$(primaryKey) = ?".text;
+        // Is this a good way to lie to compiler?
+        import std.meta : Repeat;
 
-        // Handling values
-        auto t = this.tupleof;
-        Tuple!(typeof(t)) tup = tuple(t);
-        auto setValue = tup.slice!(4, tup.length); // Adjust slicing based on actual structure
+        Tuple!(Repeat!(where.length, string)) a;
 
-        return tuple(q) ~ setValue;
+        return tuple(q) ~ setValue ~ a;
     }
 
     private void generateMeta()
@@ -366,7 +363,9 @@ mixin template Model()
                     }
                     static if (is(typeof(attr) == DefaultValue))
                     {
-                        string[] textTypes = [DataTypes.VARCHAR, DataTypes.TEXT];
+                        string[] textTypes = [
+                            DataTypes.VARCHAR, DataTypes.TEXT
+                        ];
                         import std.conv;
                         import std.algorithm;
 

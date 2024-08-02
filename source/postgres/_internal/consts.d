@@ -1,6 +1,7 @@
 module postgres._internal.consts;
 import std.typecons;
 import std.json;
+public import std.stdio;
 
 string[] reserveredWords = [
     "insert", "update", "delete", "findOne", "where", "findAll",
@@ -111,144 +112,105 @@ enum DefaultDateType
 import std.array : join;
 import std.algorithm : map;
 import std.variant;
+import postgres._internal.helpers;
+import phobos.sys.meta;
 
-struct WhereClause
+class WhereClause
 {
-    string clause;
-    this(string clause)
+    string symbol;
+    string col;
+    string val;
+    this(string symbol, string col, string val)
     {
-        this.clause = clause;
+        this.symbol = symbol;
+        this.col = col;
+        this.val = val;
     }
 
-    static WhereClause equals(T)(string column, T value)
+    this()
+    {
+
+    }
+
+    static WhereClause eq(T)(string column, T value)
     {
         import std.conv;
 
-        Variant a;
-        bool isString = is(typeof(value) == string);
-
-        if (isString)
-        {
-            a = i"'$(value)'".text;
-        }
-        else
-        {
-            a = value;
-        }
-        return WhereClause(i"$(column)=$(a)".text);
+        return new WhereClause("=", column, to!string(value));
     }
 
-    static WhereClause notEquals(T)(string column, T value)
+    static WhereClause notEq(T)(string column, T value)
     {
         import std.conv;
 
-        Variant a;
-        bool isString = is(typeof(value) == string);
-        if (isString)
-        {
-            a = i"'$(value)'".text;
-        }
-        else
-        {
-            a = value;
-        }
-        return WhereClause(i"$(column)!=$(a)".text);
+        return new WhereClause("!=", column, to!string(value));
     }
 
-    static WhereClause greaterThan(T)(string column, T value)
+    static WhereClause gt(T)(string column, T value)
     {
         import std.conv;
 
-        Variant a;
-        bool isString = is(typeof(value) == string);
-        if (isString)
-        {
-            a = i"'$(value)'".text;
-        }
-        else
-        {
-            a = value;
-        }
-        return WhereClause(i"$(column) > $(a)".text);
+        return new WhereClause(">", column, to!string(value));
     }
 
-    static WhereClause lessThan(T)(string column, T value)
+    static WhereClause lt(T)(string column, T value)
     {
         import std.conv;
 
-        Variant a;
-        bool isString = is(typeof(value) == string);
-        if (isString)
-        {
-            a = i"'$(value)'".text;
-        }
-        else
-        {
-            a = value;
-        }
-        return WhereClause(i"$(column) < $(a)".text);
+        return new WhereClause("<", column, to!string(value));
     }
 
-    static WhereClause greaterThanOrEqual(T)(string column, T value)
+    static WhereClause gtOrEq(T)(string column, T value)
     {
         import std.conv;
 
-        Variant a;
-        bool isString = is(typeof(value) == string);
-        if (isString)
+        string a;
+        if (typeof(value) == string)
         {
-            a = i"'$(value)'".text;
+            a = "'" ~ to!string(value) ~ "'";
         }
         else
         {
-            a = value;
+            a = to!string(value);
         }
-        return WhereClause(i"$(column) >= $(a)".text);
+        return new WhereClause(">=", column,);
     }
 
-    static WhereClause lessThanOrEqual(T)(string column, T value)
+    static WhereClause ltOrEq(T)(string column, T value)
     {
         import std.conv;
 
-        Variant a;
-        bool isString = is(typeof(value) == string);
-        if (isString)
+        string a;
+        if (typeof(value) == string)
         {
-            a = i"'$(value)'".text;
+            a = "'" ~ to!string(value) ~ "'";
         }
         else
         {
-            a = value;
+            a = to!string(value);
         }
-        return WhereClause(i"$(column) <= $(a)".text);
+
+        return new WhereClause("<=", column, to!string(value));
     }
 
     static WhereClause like(string column, string pattern)
     {
-        import std.conv;
-
-        return WhereClause(i"$(column) LIKE '$(pattern)'".text);
+        return new WhereClause("LIKE", column, "'" ~ pattern ~ "'");
     }
 
     static WhereClause notLike(string column, string pattern)
     {
-        import std.conv;
-
-        return WhereClause(i"$(column) NOT LIKE '$(pattern)'".text);
+        return new WhereClause("NOT LIKE", column, "'" ~ pattern ~ "'");
     }
 
     static WhereClause isNull(string column)
     {
-        import std.conv;
-
-        return WhereClause(i"$(column) IS NULL".text);
+        return new WhereClause("IS NULL", column, "");
     }
 
     static WhereClause isNotNull(string column)
     {
-        import std.conv;
-
-        return WhereClause(i"$(column) IS NOT NULL".text);
+        return new WhereClause("IS NOT NULL", column, "");
     }
 
     static WhereClause inValues(T)(string column, T[] values)
@@ -256,9 +218,18 @@ struct WhereClause
         import std.conv;
         import std.array;
 
-        bool isString = is(typeof(values[0]) == string);
-        auto formattedValues = values.map!(v => isString ? i"'$(v)'".text : v.to!string).join(",");
-        return WhereClause(i"$(column) IN ($(formattedValues))".text);
+        auto formattedValues = values.map!(v => () {
+            string a;
+            if (is(typeof(v) == string))
+            {
+                return a = "'" ~ to!string(v) ~ "'";
+            }
+            else
+            {
+                return to!string(v);
+            }
+        }).join(",");
+        return new WhereClause("IN", column, "(" ~ formattedValues ~ ")");
     }
 
     static WhereClause notInValues(T)(string column, T[] values)
@@ -266,73 +237,99 @@ struct WhereClause
         import std.conv;
         import std.array;
 
-        bool isString = is(typeof(values[0]) == string);
-        auto formattedValues = values.map!(v => isString ? i"'$(v)'".text : v.to!string).join(",");
-        return WhereClause(i"$(column) NOT IN ($(formattedValues))".text);
+        auto formattedValues = values.map!(v => () {
+            string a;
+            if (is(typeof(v) == string))
+            {
+                return a = "'" ~ to!string(v) ~ "'";
+            }
+            else
+            {
+                return to!string(v);
+            }
+        }).join(",");
+        return new WhereClause("NOT IN", column, "(" ~ formattedValues ~ ")");
     }
 
     static WhereClause between(T)(string column, T lower, T upper)
     {
         import std.conv;
 
-        Variant a, b;
-        bool isString = is(typeof(lower) == string);
-        if (isString)
+        string a;
+        string b;
+        if (is(typeof(lower)) == string)
         {
-            a = i"'$(lower)'".text;
-            b = i"'$(upper)'".text;
+            a = "'" ~ to!string(lower) ~ "'";
         }
         else
         {
-            a = lower;
-            b = upper;
+            a = to!string(lower);
         }
-        return WhereClause(i"$(column) BETWEEN $(a) AND $(b)".text);
+        if (is(typeof(lower)) == string)
+        {
+            b = "'" ~ to!string(upper) ~ "'";
+        }
+        else
+        {
+            b = to!string(upper);
+        }
+        return new WhereClause("BETWEEN", column, lower ~ " AND " ~ upper);
     }
 
     static WhereClause notBetween(T)(string column, T lower, T upper)
     {
         import std.conv;
 
-        Variant a, b;
-        bool isString = is(typeof(lower) == string);
-        if (isString)
+        string a;
+        string b;
+        if (is(typeof(lower)) == string)
         {
-            a = i"'$(lower)'".text;
-            b = i"'$(upper)'".text;
+            a = "'" ~ to!string(lower) ~ "'";
         }
         else
         {
-            a = lower;
-            b = upper;
+            a = to!string(lower);
         }
-        return WhereClause(i"$(column) NOT BETWEEN $(a) AND $(b)".text);
-    }
+        if (is(typeof(lower)) == string)
+        {
+            b = "'" ~ to!string(upper) ~ "'";
+        }
+        else
+        {
+            b = to!string(upper);
+        }
 
-    static WhereClause and(WhereClause left, WhereClause right)
-    {
-        import std.conv;
-
-        return WhereClause(i"($(left.clause)) AND ($(right.clause))".text);
-    }
-
-    static WhereClause or(WhereClause left, WhereClause right)
-    {
-        import std.conv;
-
-        return WhereClause(i"($(left.clause)) OR ($(right.clause))".text);
-    }
-
-    static WhereClause custom(string expression)
-    {
-        return WhereClause(expression);
+        return new WhereClause("NOT BETWEEN", column, lower ~ " AND " ~ upper);
     }
 
 }
 
-string generateWhereClause(WhereClause[] conditions)
+enum Seperater
 {
-    return conditions.map!(c => c.clause).join(" AND ");
+    AND = "AND",
+    OR = "OR"
+}
+
+auto generateWhereClause(WhereClause...)(Seperater separator = Seperater.AND, int count = 0, WhereClause args)
+{
+    import std.conv;
+    import std.meta : Repeat;
+
+    string[] c;
+    Tuple!(Repeat!(args.length, string)) a;
+
+    foreach (i, condition; args)
+    {
+        c ~= condition.col ~ " " ~ condition.symbol ~ " " ~ "$" ~ to!string(count) ~ " ";
+        a[i] = condition.val;
+        auto tup = condition.tupleof;
+
+        // valuesTuple[i] = tup;
+        count++;
+    }
+
+    string q = c.join("" ~ separator ~ " ");
+    return tuple(q) ~ a;
 }
 
 struct ModelMetaData
@@ -354,3 +351,7 @@ struct UpdateOptions
 {
 
 }
+
+// Tuple!() arrayToTuple(T)(T[] arr, size_t idx = 0) {
+//     return tuple();
+// }

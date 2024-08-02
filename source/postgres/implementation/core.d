@@ -140,7 +140,7 @@ class QueryResult
     private void generateRows()
     {
         import std.typecons : Tuple;
-
+       
         for (int j = 0; j < rowSize; j++)
         {
             string[string] r;
