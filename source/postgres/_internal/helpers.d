@@ -1,12 +1,6 @@
 module postgres._internal.helpers;
 
-void generateQuery(attrs...)()
-{
-    static foreach (uda; attrs)
-    {
-        writeln(uda.stringof);
-    }
-}
+
 
 string toSnakeCase(string str)
 {
@@ -24,3 +18,4 @@ string toSnakeCase(string str)
     }
     return snakeCase;
 }
+

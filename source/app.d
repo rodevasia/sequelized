@@ -36,7 +36,7 @@ void main()
 
 		Users user = new Users(c);
 		Includes inc = Includes("users");
-		
+
 		SelectOptions s = SelectOptions();
 		// s.include
 
@@ -47,18 +47,16 @@ void main()
 		// user.select(s,exp.eq("id", 1));
 
 		Post post = new Post(c);
-		post.select(s,exp.eq("id", 1));
-		// user.name = "John";
-		// user.age = 25;
-		// writeln(user.insert());
+		// post.select(s,exp.eq("id", 1));
 
-		// user.name = "John";
-		// user.i
-		// user.update(Seperater.AND, exp.eq("id", 1), exp.eq("name", "John"));
+		// post.title = "Hello";
+		post.content = "World updated";
+		// post.userId = 2;
+		// post.insert();
 		// user.sync();
-		// // post.sync();
+		// post.sync();
 
-		user.distroy(Seperater.AND, exp.eq("id", 1));
+		post.distroy(exp.eq("id", 1));
 
 	}
 	catch (PGSqlException e)
@@ -68,7 +66,7 @@ void main()
 
 }
 
-class Users:Schema
+class Users : Schema
 {
 	mixin Model;
 
@@ -105,7 +103,7 @@ class Post
 	@DefaultValue(DefaultDateType.timestamp)
 	string createdAt;
 
-	@Type(DataTypes.NUMERIC)
+	@Type(DataTypes.SERIAL)
 	@ForeignKey("users", "id",)
 	long userId;
 

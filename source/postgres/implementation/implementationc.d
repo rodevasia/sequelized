@@ -25,7 +25,7 @@ extern (C)
     void PQclear(PGresult*);
 
     PGresult* PQprepare(PGconn*, const char* stmtName, const char* query,
-        int nParams, const void* paramTypes);
+        ulong nParams, const void* paramTypes);
 
     PGresult* PQexecPrepared(PGconn*, const char* stmtName,
         int nParams, const char** paramValues,

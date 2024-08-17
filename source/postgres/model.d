@@ -64,8 +64,10 @@ mixin template Model()
 
             auto query = insertQueryGenerator();
             string sql = query[0];
+
             string name = i"insert_$(this.meta.tableName)_statement".text;
-            QueryResult re = this.manager.executePreparedStatement(name, sql, query[1 .. $]);
+
+            QueryResult re = this.manager.executePreparedStatement(name, sql, query[1]);
 
             int result = re.rows[0]["id"].to!int;
 
@@ -73,12 +75,17 @@ mixin template Model()
         }
         catch (PGSqlException e)
         {
-            writeln(e.code);
+            throw e;
             return 0;
         }
     }
+    
+    auto update(WhereClause...)(WhereClause where)
+    {
+        return updateWith(Seperater.AND, where);
+    }
 
-    auto update(WhereClause...)(Seperater sep, WhereClause where)
+    auto updateWith(WhereClause...)(Seperater sep, WhereClause where)
     {
         import std.conv;
         import std.meta;
@@ -95,8 +102,12 @@ mixin template Model()
         string sql = query[0];
 
         string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
-
-        auto re = this.manager.executePreparedStatement(prepareStmtName, sql, query[1 .. $]);
+        Variant[] values = query[1];
+        foreach (key; query[2..$])
+        {
+        values ~= key.to!Variant;
+        }
+        auto re = this.manager.executePreparedStatement(prepareStmtName, sql, values);
 
         if (re.rows.length > 0)
         {
@@ -109,7 +120,11 @@ mixin template Model()
 
     }
 
-    void distroy(WhereClause...)(Seperater s, WhereClause where)
+    auto distroy(WhereClause...)(WhereClause where)
+    {
+        return distroyWith(Seperater.AND, where);
+    }
+    void distroyWith(WhereClause...)(Seperater s, WhereClause where)
     {
         if (where.length > 0)
         {
@@ -122,9 +137,14 @@ mixin template Model()
         string sql = query[0];
 
         string prepareStmtName = i"delete_$(this.meta.tableName)_stmt".text;
-
-        this.manager.executePreparedStatement(prepareStmtName, sql, query[1 .. $]);
-
+        Variant[] values = [];
+        foreach (key; query[1..$])
+        {
+            values ~= key.to!Variant;
+        }
+        
+        this.manager.executePreparedStatement(prepareStmtName, sql,values);
+      
     }
 
     auto select(WhereClause...)(SelectOptions s = SelectOptions(), WhereClause where)
@@ -136,8 +156,8 @@ mixin template Model()
 
         auto query = generateSelectQuery(s, where);
         string sql = query[0];
-        writeln(sql);
-        // string name = i"select_$(this.meta.tableName)_statement".text;
+        
+        string name = i"select_$(this.meta.tableName)_statement".text;
         // QueryResult re = this.manager.executePreparedStatement(name, sql, query[1 .. $]);
 
         return 0;
@@ -165,13 +185,14 @@ private:
 
         auto autoIncrementals = this.meta.autoIncrementals;
         int argIndex = 1;
-        // writeln(this.tupleof);
+        int[] availableIndices = [];
         foreach (index, member; this.tupleof)
         {
             string col = __traits(identifier, this.tupleof[index]);
             if (!canFind!(a => a == col)(reservedMembers)
                 && !canFind!(a => a == col)(autoIncrementals))
             {
+
                 if (is(typeof(member) == string)
                     && (i"$(this.tupleof[index])".text == ""))
                 {
@@ -194,9 +215,12 @@ private:
                 {
                     continue;
                 }
-                column ~= i"$(col), ".text;
+                import postgres._internal.helpers : toSnakeCase;
+
+                column ~= i"$(toSnakeCase(col)), ".text;
                 values ~= i" $$(argIndex),".text;
                 argIndex++;
+                availableIndices ~= index;
             }
         }
         if (column.length == 0)
@@ -212,12 +236,20 @@ private:
                 .text;
         }
 
-        // writeln(tup);
+       
         auto t = this.tupleof;
         Tuple!(typeof(t)) tup = tuple(t);
+        
         auto setValue = tup.slice!(4, tup.length);
-
-        return tuple(q) ~ setValue;
+        Variant[] valuesTuple = [];
+        foreach(val;setValue){
+           string v = val.to!string;
+           if(v != "0" && v != "" && v!=null){
+               valuesTuple ~= val.to!Variant;
+           }
+        }
+        
+        return tuple(q) ~ valuesTuple;
     }
 
     auto updateQueryGenerator(WhereClause...)(
@@ -290,7 +322,15 @@ private:
         {
             q ~= setClause[0 .. $ - 1]; // Remove trailing comma
         }
-
+        Variant[] valuesTuple = [];
+          foreach (key; setValue)
+            {
+                if (key.to!string != "0" && key.to!string != "" && key.to!string != null)
+                {
+                   valuesTuple ~= key.to!Variant;
+                }
+                
+            }
         // Optional FROM clause
         if (fromClause.length > 0)
         {
@@ -302,11 +342,13 @@ private:
         {
 
             auto whereClause = generateWhereClause(sep, pos, where[0 .. $]);
+            
             string whereQuery = whereClause[0];
-            // writeln(whereClause);
             q ~= i" WHERE $(whereQuery)".text;
             q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
-            return tuple(q) ~ setValue ~ tuple(whereClause[1 .. $]);
+            
+          
+            return tuple(q) ~ valuesTuple ~ tuple(whereClause[1 .. $]);
         }
 
         q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
@@ -316,7 +358,7 @@ private:
 
         Tuple!(Repeat!(where.length, string)) a;
 
-        return tuple(q) ~ setValue ~ a;
+        return tuple(q) ~ valuesTuple ~ a;
     }
 
     auto distroyQueryGenerator(WhereClause...)(Seperater s, WhereClause where)

@@ -77,18 +77,18 @@ class Postgres
 
     }
 
-    QueryResult executePreparedStatement(T...)(string name, string sql, T args)
+    QueryResult executePreparedStatement(string name, string sql, Variant[] args)
     {
-        const(char)*[args.length] argsStrings;
+        const(char)*[] argsStrings;
 
-        foreach (idx, arg; args)
+        for (int i = 0; i < args.length; i++)
         {
-
+            Variant arg = args[i];
             if (!is(typeof(arg) == typeof(null))) // auto str = to!string(arg);
             {
-                argsStrings[idx] = toStringz(to!string(arg));
+                argsStrings ~= toStringz(to!string(arg));
             }
-            // else make it null
+           
         }
 
         //  paramTypes set to null; for postgres to infer types; Need fix if project become advanceds
@@ -101,7 +101,8 @@ class Postgres
         }
         else
         {
-            PGresult* res = PQexecPrepared(conn, toStringz(name), argsStrings.length, argsStrings.ptr, null, null, 0);
+            PGresult* res = PQexecPrepared(conn, toStringz(name),
+                argsStrings.length.to!int, argsStrings.ptr, null, null, 0);
             int ress = PQresultStatus(res);
             if (ress != PGRES_TUPLES_OK
                 && ress != PGRES_COMMAND_OK)
@@ -140,7 +141,7 @@ class QueryResult
     private void generateRows()
     {
         import std.typecons : Tuple;
-       
+
         for (int j = 0; j < rowSize; j++)
         {
             string[string] r;
