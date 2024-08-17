@@ -9,6 +9,7 @@ import postgres.model : Model, Schema;
 import postgres._internal.consts;
 
 import postgres.implementation.core;
+import std.sumtype;
 
 void main()
 {
@@ -34,15 +35,30 @@ void main()
 		Postgres c = new Postgres(options);
 
 		Users user = new Users(c);
-		// Post post = new Post(manager);
+		Includes inc = Includes("users");
+		
+		SelectOptions s = SelectOptions();
+		// s.include
+
+		s.includes = [inc];
+		// s.cols = ["id", "name"];
+		WhereClause exp = new WhereClause();
+		// post.select(s, exp.eq("id", 1));
+		// user.select(s,exp.eq("id", 1));
+
+		Post post = new Post(c);
+		post.select(s,exp.eq("id", 1));
 		// user.name = "John";
 		// user.age = 25;
 		// writeln(user.insert());
-		WhereClause exp = new WhereClause();
-		user.name ="John";
-		user.update(Seperater.AND, exp.eq("id", 1), exp.eq("name", "John"));
+
+		// user.name = "John";
+		// user.i
+		// user.update(Seperater.AND, exp.eq("id", 1), exp.eq("name", "John"));
 		// user.sync();
 		// // post.sync();
+
+		user.distroy(Seperater.AND, exp.eq("id", 1));
 
 	}
 	catch (PGSqlException e)
@@ -52,7 +68,7 @@ void main()
 
 }
 
-class Users : Schema
+class Users:Schema
 {
 	mixin Model;
 
@@ -90,7 +106,7 @@ class Post
 	string createdAt;
 
 	@Type(DataTypes.NUMERIC)
-	@ForeignKey("user", "id",)
+	@ForeignKey("users", "id",)
 	long userId;
 
 }

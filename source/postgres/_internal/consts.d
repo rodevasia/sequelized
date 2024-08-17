@@ -336,7 +336,7 @@ struct ModelMetaData
 {
     string tableName;
     string primaryKey;
-    string[] relations;
+    JSONValue relations=parseJSON("[]");
     JSONValue columns;
     string[string] colValues;
     // string[string] meta = null;
@@ -352,6 +352,26 @@ struct UpdateOptions
 
 }
 
+
+struct SelectOptions {
+    string[] cols;
+    Includes[] includes;
+    Seperater seperator=Seperater.AND;
+    int limit;
+    int offset;
+    string orderBy;
+    string order;
+    string groupBy;
+    string having;
+    // SelectOptions exclude;
+}
+
+import postgres.model;
+struct Includes {
+    // Schema table;
+    string table;
+    SelectOptions options;
+}
 // Tuple!() arrayToTuple(T)(T[] arr, size_t idx = 0) {
 //     return tuple();
 // }

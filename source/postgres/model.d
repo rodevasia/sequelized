@@ -15,14 +15,11 @@ import std.typecons : Tuple;
 
 interface Schema
 {
+
 }
 
 mixin template Model()
 {
-
-    private Postgres manager;
-    private ModelMetaData meta = ModelMetaData();
-    private string[] reservedMembers = ["manager", "meta", "reservedMembers"];
     this(Postgres m)
     {
         this.manager = m;
@@ -55,29 +52,6 @@ mixin template Model()
         }
     }
 
-    private string syncQueryGenerator()
-    {
-        import std.conv;
-
-        string q = i`CREATE TABLE IF NOT EXISTS "$(this.meta.tableName)" (`.text;
-        string column = "";
-        auto colObject = this.meta.columns.object;
-        import std.algorithm;
-
-        foreach (key, value; colObject)
-        {
-
-            string col = i`$(key) $(value["type"].str)$(value["properties"].str)`.text;
-            if ("references" in value.object)
-            {
-                col ~= i`, $(value.object["references"].str)`.text;
-            }
-            column ~= col ~ ", ";
-        }
-        q = q ~ column[0 .. $ - 2] ~ ");";
-        return q;
-    }
-
     auto insert()
     {
 
@@ -104,7 +78,79 @@ mixin template Model()
         }
     }
 
-    private auto insertQueryGenerator()
+    auto update(WhereClause...)(Seperater sep, WhereClause where)
+    {
+        import std.conv;
+        import std.meta;
+        import std.typecons;
+
+        if (where.length > 0)
+        {
+            foreach (idx, _; where)
+            {
+                assert(to!string(where[idx]) == "postgres._internal.consts.WhereClause", "Invalid where clause");
+            }
+        }
+        auto query = updateQueryGenerator(sep, where[0 .. $]);
+        string sql = query[0];
+
+        string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
+
+        auto re = this.manager.executePreparedStatement(prepareStmtName, sql, query[1 .. $]);
+
+        if (re.rows.length > 0)
+        {
+            return re.rows[0]["updated"] == "t";
+        }
+        else
+        {
+            return false;
+        }
+
+    }
+
+    void distroy(WhereClause...)(Seperater s, WhereClause where)
+    {
+        if (where.length > 0)
+        {
+            foreach (idx, _; where)
+            {
+                assert(to!string(where[idx]) == "postgres._internal.consts.WhereClause", "Invalid where clause");
+            }
+        }
+        auto query = distroyQueryGenerator(s, where[0 .. $]);
+        string sql = query[0];
+
+        string prepareStmtName = i"delete_$(this.meta.tableName)_stmt".text;
+
+        this.manager.executePreparedStatement(prepareStmtName, sql, query[1 .. $]);
+
+    }
+
+    auto select(WhereClause...)(SelectOptions s = SelectOptions(), WhereClause where)
+    {
+        import std.conv;
+        import std.json;
+        import std.typecons;
+        import std.meta : Repeat;
+
+        auto query = generateSelectQuery(s, where);
+        string sql = query[0];
+        writeln(sql);
+        // string name = i"select_$(this.meta.tableName)_statement".text;
+        // QueryResult re = this.manager.executePreparedStatement(name, sql, query[1 .. $]);
+
+        return 0;
+        // return re.rows;
+
+    }
+
+private:
+    Postgres manager;
+    ModelMetaData meta = ModelMetaData();
+    string[] reservedMembers = ["manager", "meta", "reservedMembers"];
+
+    auto insertQueryGenerator()
     {
 
         import std.conv;
@@ -172,37 +218,6 @@ mixin template Model()
         auto setValue = tup.slice!(4, tup.length);
 
         return tuple(q) ~ setValue;
-    }
-
-    auto update(WhereClause...)(Seperater sep, WhereClause where)
-    {
-        import std.conv;
-        import std.meta;
-        import std.typecons;
-
-        if (where.length > 0)
-        {
-            foreach (idx, _; where)
-            {
-                assert(to!string(where[idx]) == "postgres._internal.consts.WhereClause", "Invalid where clause");
-            }
-        }
-        auto query = updateQueryGenerator(sep, where[0 .. $]);
-        string sql = query[0];
-
-        string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
-
-        auto re = this.manager.executePreparedStatement(prepareStmtName, sql, query[1 .. $]);
-
-        if (re.rows.length > 0)
-        {
-            return re.rows[0]["updated"] == "t";
-        }
-        else
-        {
-            return false;
-        }
-
     }
 
     auto updateQueryGenerator(WhereClause...)(
@@ -304,7 +319,105 @@ mixin template Model()
         return tuple(q) ~ setValue ~ a;
     }
 
-    private void generateMeta()
+    auto distroyQueryGenerator(WhereClause...)(Seperater s, WhereClause where)
+    {
+        import std.conv;
+        import std.json;
+        import std.typecons;
+        import std.meta : Repeat;
+
+        string tableName = this.meta.tableName;
+        string primaryKey = this.meta.primaryKey;
+        string q = i`DELETE FROM "$(tableName)"`.text;
+
+        if (where.length > 0)
+        {
+            auto whereClause = generateWhereClause(s, 1, where[0 .. $]);
+            string whereQuery = whereClause[0];
+            q ~= i" WHERE $(whereQuery)".text;
+            return tuple(q) ~ tuple(whereClause[1 .. $]);
+        }
+        Tuple!(Repeat!(where.length, string)) a;
+        return tuple(q) ~ a;
+    }
+
+    string syncQueryGenerator()
+    {
+        import std.conv;
+
+        string q = i`CREATE TABLE IF NOT EXISTS "$(this.meta.tableName)" (`.text;
+        string column = "";
+        auto colObject = this.meta.columns.object;
+        import std.algorithm;
+
+        foreach (key, value; colObject)
+        {
+
+            string col = i`$(key) $(value["type"].str)$(value["properties"].str)`.text;
+            if ("references" in value.object)
+            {
+                col ~= i`, $(value.object["references"].str)`.text;
+            }
+            column ~= col ~ ", ";
+        }
+        q = q ~ column[0 .. $ - 2] ~ ");";
+        return q;
+    }
+
+    auto generateSelectQuery(WhereClause...)(SelectOptions s, WhereClause where)
+    {
+        import std.conv;
+        import std.json;
+        import std.typecons;
+        import std.meta : Repeat;
+
+        string tableName = this.meta.tableName;
+
+        string col = "*";
+
+        if (s.cols.length > 0)
+        {
+            col = s.cols.join(",");
+        }
+
+        string q = i`SELECT $(col) FROM "$(tableName)"`.text;
+
+        foreach (include; s.includes)
+        {
+
+            string includeTable = include.table;
+            string includeCols = include.options.cols.length > 0 ? include.options.cols.join(
+                ",") : "*";
+            // auto relationKey = meta.relations[i"$(tableName).$(includeTable)".text].str;
+            import std.algorithm : canFind;
+
+            string relationKey = "";
+            foreach (key; meta.relations.array)
+            {
+                if (canFind(key.object.keys, i"$(tableName).$(includeTable)".text))
+                {
+                    relationKey = key.object[i"$(tableName).$(includeTable)".text].str;
+                }
+            }
+            string[] referenceColumns = relationKey.split(".");
+            q ~= i` LEFT JOIN "$(includeTable)" ON "$(tableName)".$(referenceColumns[0]) = "$(includeTable)".$(referenceColumns[1])`
+                .text;
+
+        }
+
+        if (where.length > 0)
+        {
+            auto whereClause = generateWhereClause(s.seperator, 1, where[0 .. $]);
+            string whereQuery = whereClause[0];
+            q ~= i" WHERE $(whereQuery)".text;
+            return tuple(q) ~ tuple(whereClause[1 .. $]);
+        }
+
+        Tuple!(Repeat!(where.length, string)) a;
+        return tuple(q) ~ a;
+    }
+
+    void generateMeta()
     {
         string tableName = __traits(identifier, typeof(this));
 
@@ -401,6 +514,10 @@ mixin template Model()
                         import std.conv;
                         import std.json;
 
+                        JSONValue j;
+                        j[i"$(tableName).$(attr.table)".text] = i"$(tbc).$(attr.referenceKey)".text;
+
+                        this.meta.relations.array ~= j;
                         this.meta.columns[tbc].object["references"] = i`FOREIGN KEY ($(tbc)) REFERENCES "$(attr.table)"($(attr.referenceKey))`
                             .text;
 
@@ -411,4 +528,5 @@ mixin template Model()
             }
         }
     }
+
 }
