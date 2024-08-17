@@ -36,18 +36,18 @@ void main()
 
 		Users user = new Users(c);
 		Includes inc = Includes("users");
-
+		inc.options.cols = ["id",];
 		SelectOptions s = SelectOptions();
 		// s.include
 
 		s.includes = [inc];
-		// s.cols = ["id", "name"];
+		s.cols = [ "content"];
 		WhereClause exp = new WhereClause();
 		// post.select(s, exp.eq("id", 1));
 		// user.select(s,exp.eq("id", 1));
 
 		Post post = new Post(c);
-		// post.select(s,exp.eq("id", 1));
+		writeln(post.select(s, exp.eq("id", 2)));
 
 		// post.title = "Hello";
 		post.content = "World updated";
@@ -56,7 +56,7 @@ void main()
 		// user.sync();
 		// post.sync();
 
-		post.distroy(exp.eq("id", 1));
+		// post.distroy(exp.eq("id", 1));
 
 	}
 	catch (PGSqlException e)

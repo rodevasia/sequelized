@@ -310,7 +310,8 @@ enum Seperater
     OR = "OR"
 }
 
-auto generateWhereClause(WhereClause...)(Seperater separator = Seperater.AND, int count = 0, WhereClause args)
+auto generateWhereClause(WhereClause...)(string tableName, Seperater separator = Seperater.AND,
+    int count = 0, WhereClause args)
 {
     import std.conv;
     import std.meta : Repeat;
@@ -320,7 +321,7 @@ auto generateWhereClause(WhereClause...)(Seperater separator = Seperater.AND, in
 
     foreach (i, condition; args)
     {
-        c ~= condition.col ~ " " ~ condition.symbol ~ " " ~ "$" ~ to!string(count) ~ " ";
+        c ~= `"`~tableName~`"`~"."~condition.col ~ " " ~ condition.symbol ~ " " ~ "$" ~ to!string(count) ~ " ";
         a[i] = condition.val;
         auto tup = condition.tupleof;
 
@@ -336,7 +337,7 @@ struct ModelMetaData
 {
     string tableName;
     string primaryKey;
-    JSONValue relations=parseJSON("[]");
+    JSONValue relations = parseJSON("[]");
     JSONValue columns;
     string[string] colValues;
     // string[string] meta = null;
@@ -352,11 +353,11 @@ struct UpdateOptions
 
 }
 
-
-struct SelectOptions {
+struct SelectOptions
+{
     string[] cols;
     Includes[] includes;
-    Seperater seperator=Seperater.AND;
+    Seperater seperator = Seperater.AND;
     int limit;
     int offset;
     string orderBy;
@@ -367,7 +368,9 @@ struct SelectOptions {
 }
 
 import postgres.model;
-struct Includes {
+
+struct Includes
+{
     // Schema table;
     string table;
     SelectOptions options;

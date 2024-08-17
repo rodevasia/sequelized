@@ -158,10 +158,15 @@ mixin template Model()
         string sql = query[0];
         
         string name = i"select_$(this.meta.tableName)_statement".text;
-        // QueryResult re = this.manager.executePreparedStatement(name, sql, query[1 .. $]);
-
-        return 0;
-        // return re.rows;
+        Variant[] values = [];
+        foreach (key; query[1..$])
+        {
+            values ~= key.to!Variant;
+        }
+        QueryResult re = this.manager.executePreparedStatement(name, sql, values);
+        writeln(sql);
+        // return 0;
+        return re.rows;
 
     }
 
@@ -341,7 +346,7 @@ private:
         if (where.length > 0)
         {
 
-            auto whereClause = generateWhereClause(sep, pos, where[0 .. $]);
+            auto whereClause = generateWhereClause(this.meta.tableName,sep, pos, where[0 .. $]);
             
             string whereQuery = whereClause[0];
             q ~= i" WHERE $(whereQuery)".text;
@@ -374,7 +379,7 @@ private:
 
         if (where.length > 0)
         {
-            auto whereClause = generateWhereClause(s, 1, where[0 .. $]);
+            auto whereClause = generateWhereClause(this.meta.tableName,s, 1, where[0 .. $]);
             string whereQuery = whereClause[0];
             q ~= i" WHERE $(whereQuery)".text;
             return tuple(q) ~ tuple(whereClause[1 .. $]);
@@ -449,7 +454,7 @@ private:
 
         if (where.length > 0)
         {
-            auto whereClause = generateWhereClause(s.seperator, 1, where[0 .. $]);
+            auto whereClause = generateWhereClause(this.meta.tableName,s.seperator, 1, where[0 .. $]);
             string whereQuery = whereClause[0];
             q ~= i" WHERE $(whereQuery)".text;
             return tuple(q) ~ tuple(whereClause[1 .. $]);
