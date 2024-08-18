@@ -79,7 +79,7 @@ mixin template Model()
             return 0;
         }
     }
-    
+
     auto update(WhereClause...)(WhereClause where)
     {
         return updateWith(Seperater.AND, where);
@@ -103,9 +103,9 @@ mixin template Model()
 
         string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
         Variant[] values = query[1];
-        foreach (key; query[2..$])
+        foreach (key; query[2 .. $])
         {
-        values ~= key.to!Variant;
+            values ~= key.to!Variant;
         }
         auto re = this.manager.executePreparedStatement(prepareStmtName, sql, values);
 
@@ -124,6 +124,7 @@ mixin template Model()
     {
         return distroyWith(Seperater.AND, where);
     }
+
     void distroyWith(WhereClause...)(Seperater s, WhereClause where)
     {
         if (where.length > 0)
@@ -138,13 +139,13 @@ mixin template Model()
 
         string prepareStmtName = i"delete_$(this.meta.tableName)_stmt".text;
         Variant[] values = [];
-        foreach (key; query[1..$])
+        foreach (key; query[1 .. $])
         {
             values ~= key.to!Variant;
         }
-        
-        this.manager.executePreparedStatement(prepareStmtName, sql,values);
-      
+
+        this.manager.executePreparedStatement(prepareStmtName, sql, values);
+
     }
 
     auto select(WhereClause...)(SelectOptions s = SelectOptions(), WhereClause where)
@@ -156,15 +157,15 @@ mixin template Model()
 
         auto query = generateSelectQuery(s, where);
         string sql = query[0];
-        
+
         string name = i"select_$(this.meta.tableName)_statement".text;
         Variant[] values = [];
-        foreach (key; query[1..$])
+        foreach (key; query[1 .. $])
         {
             values ~= key.to!Variant;
         }
         QueryResult re = this.manager.executePreparedStatement(name, sql, values);
-        writeln(sql);
+        
         // return 0;
         return re.rows;
 
@@ -241,19 +242,20 @@ private:
                 .text;
         }
 
-       
         auto t = this.tupleof;
         Tuple!(typeof(t)) tup = tuple(t);
-        
+
         auto setValue = tup.slice!(4, tup.length);
         Variant[] valuesTuple = [];
-        foreach(val;setValue){
-           string v = val.to!string;
-           if(v != "0" && v != "" && v!=null){
-               valuesTuple ~= val.to!Variant;
-           }
+        foreach (val; setValue)
+        {
+            string v = val.to!string;
+            if (v != "0" && v != "" && v != null)
+            {
+                valuesTuple ~= val.to!Variant;
+            }
         }
-        
+
         return tuple(q) ~ valuesTuple;
     }
 
@@ -328,14 +330,14 @@ private:
             q ~= setClause[0 .. $ - 1]; // Remove trailing comma
         }
         Variant[] valuesTuple = [];
-          foreach (key; setValue)
+        foreach (key; setValue)
+        {
+            if (key.to!string != "0" && key.to!string != "" && key.to!string != null)
             {
-                if (key.to!string != "0" && key.to!string != "" && key.to!string != null)
-                {
-                   valuesTuple ~= key.to!Variant;
-                }
-                
+                valuesTuple ~= key.to!Variant;
             }
+
+        }
         // Optional FROM clause
         if (fromClause.length > 0)
         {
@@ -346,13 +348,12 @@ private:
         if (where.length > 0)
         {
 
-            auto whereClause = generateWhereClause(this.meta.tableName,sep, pos, where[0 .. $]);
-            
+            auto whereClause = generateWhereClause(this.meta.tableName, sep, pos, where[0 .. $]);
+
             string whereQuery = whereClause[0];
             q ~= i" WHERE $(whereQuery)".text;
             q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
-            
-          
+
             return tuple(q) ~ valuesTuple ~ tuple(whereClause[1 .. $]);
         }
 
@@ -379,7 +380,7 @@ private:
 
         if (where.length > 0)
         {
-            auto whereClause = generateWhereClause(this.meta.tableName,s, 1, where[0 .. $]);
+            auto whereClause = generateWhereClause(this.meta.tableName, s, 1, where[0 .. $]);
             string whereQuery = whereClause[0];
             q ~= i" WHERE $(whereQuery)".text;
             return tuple(q) ~ tuple(whereClause[1 .. $]);
@@ -424,17 +425,29 @@ private:
 
         if (s.cols.length > 0)
         {
-            col = s.cols.join(",");
+            import std.algorithm : map;
+            col = s.cols.map!(a => i`$(tableName).$(a)`.text).join(",");
         }
 
-        string q = i`SELECT $(col) FROM "$(tableName)"`.text;
-
+        string[] cols = [];
+        string[] joins = [];
         foreach (include; s.includes)
         {
 
             string includeTable = include.table;
             string includeCols = include.options.cols.length > 0 ? include.options.cols.join(
                 ",") : "*";
+            if (include.options.cols.length > 0)
+            {
+                import std.algorithm : map;
+
+                auto icols = include.options.cols.map!(
+                    a => i`$(includeTable).$(a) AS "$(includeTable).$(a)"`.text);
+                cols ~= icols.join(",");
+            }else{
+                cols ~= i`$(includeTable).*`.text;
+            }
+
             // auto relationKey = meta.relations[i"$(tableName).$(includeTable)".text].str;
             import std.algorithm : canFind;
 
@@ -447,14 +460,16 @@ private:
                 }
             }
             string[] referenceColumns = relationKey.split(".");
-            q ~= i` LEFT JOIN "$(includeTable)" ON "$(tableName)".$(referenceColumns[0]) = "$(includeTable)".$(referenceColumns[1])`
+            joins ~= i` LEFT JOIN "$(includeTable)" ON "$(tableName)".$(referenceColumns[0]) = "$(includeTable)".$(referenceColumns[1])`
                 .text;
 
         }
-
+        col ~= ", " ~ cols.join(",");
+        string q = i`SELECT $(col) FROM "$(tableName)"`.text;
+        q ~= joins.join(" ");
         if (where.length > 0)
         {
-            auto whereClause = generateWhereClause(this.meta.tableName,s.seperator, 1, where[0 .. $]);
+            auto whereClause = generateWhereClause(this.meta.tableName, s.seperator, 1, where[0 .. $]);
             string whereQuery = whereClause[0];
             q ~= i" WHERE $(whereQuery)".text;
             return tuple(q) ~ tuple(whereClause[1 .. $]);

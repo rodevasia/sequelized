@@ -123,7 +123,7 @@ class QueryResult
     private int colSize;
     string[string][size_t] rows;
     private PGresult* res;
-    private int position;
+   
 
     this(PGresult* r)
     {
@@ -149,7 +149,7 @@ class QueryResult
             {
                 string a;
 
-                if (PQgetisnull(res, position, i))
+                if (PQgetisnull(res, j, i))
                     a = null;
                 else
                 {
@@ -162,13 +162,13 @@ class QueryResult
                             {
                             case BYTEAOID:
                                 size_t len;
-                                char* c = PQunescapeBytea(PQgetvalue(res, position, i), &len);
+                                char* c = PQunescapeBytea(PQgetvalue(res, j, i), &len);
                                 a = cast(string) c[0 .. len].idup;
 
                                 PQfreemem(c);
                                 break;
                             default:
-                                a = to!string(PQgetvalue(res, position, i));
+                                a = to!string(PQgetvalue(res, j, i));
                             }
                             break;
                         }
