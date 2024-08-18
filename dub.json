@@ -1,19 +1,7 @@
 {
-	"authors": [
-		"Robert Devasia"
-	],
+	"authors": ["Robert Devasia"],
 	"copyright": "Copyright © 2024, Robert Devasia",
-	"description": "A  postgres simple orm ",
-	"libs": [ "pq" ],
-    "lflags-windows-x86_64": [ "-LIBPATH:C:/Program Files/PostgreSQL/16/lib/" ],
-    "copyFiles-windows-x86_64": [
-        "C:/Program Files/PostgreSQL/16/lib/libpq.dll",
-        "C:/Program Files/PostgreSQL/16/bin/libintl-9.dll",
-        "C:/Program Files/PostgreSQL/16/bin/libssl-3-x64.dll",
-        "C:/Program Files/PostgreSQL/16/bin/libcrypto-3-x64.dll",
-		"C:/Program Files/PostgreSQL/16/bin/libwinpthread-1.dll",
-		"C:/Program Files/PostgreSQL/16/bin/libiconv-2.dll"
-    ],
+	"description": "A simple postgres orm ",
 	"license": "MIT",
 	"name": "sequalized"
 }
