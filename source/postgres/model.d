@@ -120,12 +120,12 @@ mixin template Model()
 
     }
 
-    auto distroy(WhereClause...)(WhereClause where)
+    auto destroy(WhereClause...)(WhereClause where)
     {
-        return distroyWith(Seperater.AND, where);
+        return destroyWith(Seperater.AND, where);
     }
 
-    void distroyWith(WhereClause...)(Seperater s, WhereClause where)
+    void destroyWith(WhereClause...)(Seperater s, WhereClause where)
     {
         if (where.length > 0)
         {
@@ -511,8 +511,7 @@ private:
                         }
                         import std.conv;
                         import std.json;
-
-                        string objectRef = i`{"type":"$(attr.type)","properties":""}`.text;
+                        string objectRef = i`{"type":"$(cast(string)attr.type)","properties":""}`.text;
                         this.meta.columns[tbc] = parseJSON(objectRef);
                     }
 
@@ -580,6 +579,7 @@ private:
                         j[i"$(tableName).$(attr.table)".text] = i"$(tbc).$(attr.referenceKey)".text;
 
                         this.meta.relations.array ~= j;
+                    
                         this.meta.columns[tbc].object["references"] = i`FOREIGN KEY ($(tbc)) REFERENCES "$(attr.table)"($(attr.referenceKey))`
                             .text;
 
@@ -588,6 +588,13 @@ private:
                 }
                 column = column ~ ",";
             }
+        }
+        // add pmKey if not provided
+        if (this.meta.primaryKey == "")
+        {
+            import std.json;
+            this.meta.primaryKey = "id";
+            this.meta.columns["id"] = parseJSON(i`{"type":"SERIAL","properties":" PRIMARY KEY"}`.text);
         }
     }
 

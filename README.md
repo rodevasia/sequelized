@@ -29,7 +29,7 @@ Must be added this on `dub.json` for windows
 
 ```d
 
-class Users : Schema
+class Users
 {
 	mixin Model;
 
@@ -43,4 +43,28 @@ class Users : Schema
 	string name = null;
 }
 ```
+
+### Usage
+ - insert
+	```d
+		Users u = new Users();
+		u.name = "John Doe"
+		auto id = u.insert();
+	```
+		returns the inserted data id
+	
+ - delete
+	```d
+	u.destroy();
+	```
+- update
+	```
+	WhereClause w = WhereClause();
+	u.name="John Smith"
+	u.update(w.eq("name",1))
+	```
+- select 
+	```
+	u.select(w.eq("name","John Smith"))
+	```
 

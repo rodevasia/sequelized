@@ -8,6 +8,7 @@ struct DatabaseConnectionOption
     string database;
     string host;
     string password;
+    string user;
     // BOOLEAN_CONNECTION_OPTION_MAP
     bool binary = false;
     bool keepAlive = false;

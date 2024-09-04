@@ -15,15 +15,16 @@ import std.variant;
 class Postgres
 {
     private PGconn* conn;
+   
     private string connection;
     this(DatabaseConnectionOption dco)
     {
         connection = i"host=$(dco.host) 
                               port=$(dco.port) 
                               dbname=$(dco.database) 
-                              user=$(dco.application_name)
+                              user=$(dco.user)
                               password=$(dco.password) 
-                              client_encoding=$(dco.client_encoding) 
+                              client_encoding=$(dco.client_encoding?dco.client_encoding:`utf8`) 
                               application_name=$(dco.application_name)
                               sslmode=$(dco.ssl ? `require` : `disable`)".text;
         connect(connection);

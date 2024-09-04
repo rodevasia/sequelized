@@ -38,69 +38,61 @@ struct Unique
     bool isUnique;
 }
 
-enum DataTypes
+enum DataTypes : string
 {
-    SMALLINT = "SMALLINT", // 2 bytes, range -32768 to +32767
-    INTEGER = "INTEGER", // 4 bytes, range -2147483648 to +2147483647
-    BIGINT = "BIGINT", // 8 bytes, range -9223372036854775808 to +9223372036854775807
-    DECIMAL = "DECIMAL", // user-specified precision, exact
-    NUMERIC = "NUMERIC", // user-specified precision, exact
-    REAL = "REAL", // 4 bytes, variable-precision, inexact
-    DOUBLE_PRECISION = "DOUBLE PRECISION", // 8 bytes, variable-precision, inexact
-    SMALLSERIAL = "SMALLSERIAL", // 2 bytes, auto-incrementing
-    SERIAL = "SERIAL", // 4 bytes, auto-incrementing
-    BIGSERIAL = "BIGSERIAL", // 8 bytes, auto-incrementing
+    // Basic Types
+    SERIAL = "SERIAL",
+    INTEGER = "INTEGER",
+    BIGINT = "BIGINT",
+    SMALLINT = "SMALLINT",
+    FLOAT = "FLOAT",
+    REAL = "REAL",
+    DOUBLE_PRECISION = "DOUBLE PRECISION",
+    NUMERIC = "NUMERIC",
+    BOOLEAN = "BOOLEAN",
+    CHAR = "CHAR",
+    VARCHAR = "VARCHAR",
+    TEXT = "TEXT",
+    DATE = "DATE",
+    TIME = "TIME",
+    TIMESTAMP = "TIMESTAMP",
+    BYTEA = "BYTEA",
 
-    MONEY = "MONEY", // currency amounts
+    // 1D Array Types
+    INTEGER_ARRAY = "INTEGER[]",
+    BIGINT_ARRAY = "BIGINT[]",
+    SMALLINT_ARRAY = "SMALLINT[]",
+    FLOAT_ARRAY = "FLOAT[]",
+    REAL_ARRAY = "REAL[]",
+    DOUBLE_PRECISION_ARRAY = "DOUBLE PRECISION[]",
+    NUMERIC_ARRAY = "NUMERIC[]",
+    BOOLEAN_ARRAY = "BOOLEAN[]",
+    CHAR_ARRAY = "CHAR[]",
+    VARCHAR_ARRAY = "VARCHAR[]",
+    TEXT_ARRAY = "TEXT[]",
+    DATE_ARRAY = "DATE[]",
+    TIME_ARRAY = "TIME[]",
+    TIMESTAMP_ARRAY = "TIMESTAMP[]",
+    BYTEA_ARRAY = "BYTEA[]",
 
-    CHAR = "CHAR", // fixed-length, blank padded
-    VARCHAR = "VARCHAR", // variable-length with limit
-    TEXT = "TEXT", // variable unlimited length
-
-    BYTEA = "BYTEA", // binary data ("byte array")
-
-    TIMESTAMP = "TIMESTAMP", // both date and time (no time zone)
-    TIMESTAMPTZ = "TIMESTAMPTZ", // both date and time, with time zone
-    DATE = "DATE", // date (no time of day)
-    TIME = "TIME", // time of day (no date)
-    TIMETZ = "TIMETZ", // time of day, with time zone
-    INTERVAL = "INTERVAL", // time span
-
-    BOOLEAN = "BOOLEAN", // true/false
-
-    POINT = "POINT", // geometric point '(x, y)'
-    LINE = "LINE", // infinite line
-    LSEG = "LSEG", // line segment
-    BOX = "BOX", // rectangular box
-    PATH = "PATH", // geometric path
-    POLYGON = "POLYGON", // closed geometric path
-    CIRCLE = "CIRCLE", // geometric circle
-
-    CIDR = "CIDR", // IPv4 or IPv6 network
-    INET = "INET", // IPv4 or IPv6 host address
-    MACADDR = "MACADDR", // MAC address
-    MACADDR8 = "MACADDR8", // MAC address (EUI-64 format)
-
-    BIT = "BIT", // fixed-length bit string
-    VARBIT = "VARBIT", // variable-length bit string
-
-    UUID = "UUID", // universally unique identifier
-
-    XML = "XML", // XML data
-
-    JSON = "JSON", // JSON data
-    JSONB = "JSONB", // binary JSON data
-
-    HSTORE = "HSTORE", // key-value store
-
-    ARRAY = "ARRAY", // array of any data type
-    ENUM = "ENUM", // enumerated type
-
-    TSQUERY = "TSQUERY", // text search query
-    TSVECTOR = "TSVECTOR", // text search document
-    TXID_SNAPSHOT = "TXID_SNAPSHOT", // user-level transaction ID snapshot
-
+    // 2D Array Types
+    INTEGER_ARRAY_2D = "INTEGER[][]",
+    BIGINT_ARRAY_2D = "BIGINT[][]",
+    SMALLINT_ARRAY_2D = "SMALLINT[][]",
+    FLOAT_ARRAY_2D = "FLOAT[][]",
+    REAL_ARRAY_2D = "REAL[][]",
+    DOUBLE_PRECISION_ARRAY_2D = "DOUBLE PRECISION[][]",
+    NUMERIC_ARRAY_2D = "NUMERIC[][]",
+    BOOLEAN_ARRAY_2D = "BOOLEAN[][]",
+    CHAR_ARRAY_2D = "CHAR[][]",
+    VARCHAR_ARRAY_2D = "VARCHAR[][]",
+    TEXT_ARRAY_2D = "TEXT[][]",
+    DATE_ARRAY_2D = "DATE[][]",
+    TIME_ARRAY_2D = "TIME[][]",
+    TIMESTAMP_ARRAY_2D = "TIMESTAMP[][]",
+    BYTEA_ARRAY_2D = "BYTEA[][]"
 }
+
 
 enum DefaultDateType
 {
