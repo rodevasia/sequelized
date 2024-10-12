@@ -14,4 +14,4 @@ sequalized-test-*
 *.o
 *.obj
 *.lst
-*.dll
+/*.dll
