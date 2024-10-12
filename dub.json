@@ -3,5 +3,20 @@
 	"copyright": "Copyright © 2024, Robert Devasia",
 	"description": "A simple postgres orm ",
 	"license": "MIT",
-	"name": "sequalized"
+	"name": "sequalized",
+	"copyFiles-windows": [
+		"libs/*.dll"
+	],
+	"configurations": [
+		{
+			"name": "library",
+			"targetType": "library"
+		}
+	],
+	"lflags-windows": [
+		"/LIBPATH:$PACKAGE_DIR/libs"
+	],
+	"libs": [
+		"pq"
+	]
 }

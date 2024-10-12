@@ -51,7 +51,8 @@ class Users
 		u.name = "John Doe"
 		auto id = u.insert();
 	```
-		returns the inserted data id
+
+	`returns` the inserted data `id`
 	
  - delete
 	```d

@@ -120,6 +120,12 @@ mixin template Model()
 
     }
 
+
+  /// 
+  /// Params:
+  ///   where = WhereClause
+  ///  Function to destory the model fromthe table.
+    /// 
     auto destroy(WhereClause...)(WhereClause where)
     {
         return destroyWith(Seperater.AND, where);
