@@ -12,6 +12,7 @@ import postgres.implementation.core : Postgres, QueryResult;
 import postgres.implementation.exception;
 import std.meta : Repeat;
 import std.typecons : Tuple;
+import std.string;
 
 interface Schema
 {
@@ -20,6 +21,7 @@ interface Schema
 
 mixin template Model()
 {
+
     this(Postgres m)
     {
         this.manager = m;
@@ -63,6 +65,7 @@ mixin template Model()
             import std.typecons;
 
             auto query = insertQueryGenerator();
+            writeln(i"Executing query: $(query[0])".text);
             string sql = query[0];
 
             string name = i"insert_$(this.meta.tableName)_statement".text;
@@ -75,7 +78,18 @@ mixin template Model()
         }
         catch (PGSqlException e)
         {
-            throw e;
+            import std.string : strip;
+
+            if (e.code.strip() == "23505")
+            {
+                import postgres.implementation.exception : DuplicateKeyException;
+
+                throw new DuplicateKeyException(e.message);
+            }
+            else
+            {
+                throw e;
+            }
             return 0;
         }
     }
@@ -120,11 +134,10 @@ mixin template Model()
 
     }
 
-
-  /// 
-  /// Params:
-  ///   where = WhereClause
-  ///  Function to destory the model fromthe table.
+    /// 
+    /// Params:
+    ///   where = WhereClause
+    ///  Function to destory the model fromthe table.
     /// 
     auto destroy(WhereClause...)(WhereClause where)
     {
@@ -171,7 +184,7 @@ mixin template Model()
             values ~= key.to!Variant;
         }
         QueryResult re = this.manager.executePreparedStatement(name, sql, values);
-        
+
         // return 0;
         return re.rows;
 
@@ -251,7 +264,7 @@ private:
         auto t = this.tupleof;
         Tuple!(typeof(t)) tup = tuple(t);
 
-        auto setValue = tup.slice!(4, tup.length);
+        auto setValue = tup.slice!(3, tup.length);
         Variant[] valuesTuple = [];
         foreach (val; setValue)
         {
@@ -288,7 +301,7 @@ private:
         // Handling values
         auto t = this.tupleof;
         Tuple!(typeof(t)) tup = tuple(t);
-        auto setValue = tup.slice!(4, tup.length); // Adjust slicing based on actual structure
+        auto setValue = tup.slice!(3, tup.length); // Adjust slicing based on actual structure
 
         foreach (index, member; this.tupleof)
         {
@@ -424,6 +437,7 @@ private:
         import std.json;
         import std.typecons;
         import std.meta : Repeat;
+        import std.array;
 
         string tableName = this.meta.tableName;
 
@@ -432,6 +446,7 @@ private:
         if (s.cols.length > 0)
         {
             import std.algorithm : map;
+
             col = s.cols.map!(a => i`$(tableName).$(a)`.text).join(",");
         }
 
@@ -446,16 +461,20 @@ private:
             if (include.options.cols.length > 0)
             {
                 import std.algorithm : map;
+                import std.array;
 
                 auto icols = include.options.cols.map!(
                     a => i`$(includeTable).$(a) AS "$(includeTable).$(a)"`.text);
                 cols ~= icols.join(",");
-            }else{
+            }
+            else
+            {
                 cols ~= i`$(includeTable).*`.text;
             }
 
             // auto relationKey = meta.relations[i"$(tableName).$(includeTable)".text].str;
             import std.algorithm : canFind;
+            import std.array;
 
             string relationKey = "";
             foreach (key; meta.relations.array)
@@ -470,7 +489,13 @@ private:
                 .text;
 
         }
-        col ~= ", " ~ cols.join(",");
+        import std.array;
+
+        string incCols = cols.join(",");
+        if (incCols.length > 0)
+        {
+            col ~= "," ~ incCols;
+        }
         string q = i`SELECT $(col) FROM "$(tableName)"`.text;
         q ~= joins.join(" ");
         if (where.length > 0)
@@ -517,7 +542,9 @@ private:
                         }
                         import std.conv;
                         import std.json;
-                        string objectRef = i`{"type":"$(cast(string)attr.type)","properties":""}`.text;
+
+                        string objectRef = i`{"type":"$(cast(string)attr.type)","properties":""}`
+                            .text;
                         this.meta.columns[tbc] = parseJSON(objectRef);
                     }
 
@@ -585,7 +612,7 @@ private:
                         j[i"$(tableName).$(attr.table)".text] = i"$(tbc).$(attr.referenceKey)".text;
 
                         this.meta.relations.array ~= j;
-                    
+
                         this.meta.columns[tbc].object["references"] = i`FOREIGN KEY ($(tbc)) REFERENCES "$(attr.table)"($(attr.referenceKey))`
                             .text;
 
@@ -599,8 +626,10 @@ private:
         if (this.meta.primaryKey == "")
         {
             import std.json;
+
             this.meta.primaryKey = "id";
-            this.meta.columns["id"] = parseJSON(i`{"type":"SERIAL","properties":" PRIMARY KEY"}`.text);
+            this.meta.columns["id"] = parseJSON(
+                i`{"type":"SERIAL","properties":" PRIMARY KEY"}`.text);
         }
     }
 

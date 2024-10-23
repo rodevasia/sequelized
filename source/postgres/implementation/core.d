@@ -15,7 +15,7 @@ import std.variant;
 class Postgres
 {
     private PGconn* conn;
-   
+
     private string connection;
     this(DatabaseConnectionOption dco)
     {
@@ -89,7 +89,7 @@ class Postgres
             {
                 argsStrings ~= toStringz(to!string(arg));
             }
-           
+
         }
 
         //  paramTypes set to null; for postgres to infer types; Need fix if project become advanceds
@@ -105,11 +105,11 @@ class Postgres
             PGresult* res = PQexecPrepared(conn, toStringz(name),
                 argsStrings.length.to!int, argsStrings.ptr, null, null, 0);
             int ress = PQresultStatus(res);
+            query(i"DEALLOCATE $(name)".text);
             if (ress != PGRES_TUPLES_OK
                 && ress != PGRES_COMMAND_OK)
                 throw new PGSqlException(conn, res);
 
-            query(i"DEALLOCATE $(name)".text);
             return new QueryResult(res);
         }
 
@@ -124,7 +124,6 @@ class QueryResult
     private int colSize;
     string[string][size_t] rows;
     private PGresult* res;
-   
 
     this(PGresult* r)
     {

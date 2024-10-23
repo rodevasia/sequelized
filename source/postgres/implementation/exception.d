@@ -6,7 +6,7 @@ import std.conv;
 private import postgres.implementation.implementationc;
 
 
-class PGSqlException : Throwable
+class PGSqlException : Exception
 {
     string code;
     string sqlState;
@@ -21,7 +21,7 @@ class PGSqlException : Throwable
                     .PQSHOW_CONTEXT_ALWAYS);
            string ss = to!string(c);
            import std.string:split;
-           this.code = ss.split(':')[1];
+           this.code = to!string(ss.split(':')[1]);
 
             this.sqlState = to!string(s);
         }
@@ -29,5 +29,14 @@ class PGSqlException : Throwable
 
         this.message = to!string(m);
         super(this.message);
+    }
+}
+
+
+class DuplicateKeyException : Exception
+{
+    this(string message)
+    {
+        super(message);
     }
 }
