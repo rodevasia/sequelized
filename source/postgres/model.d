@@ -176,7 +176,7 @@ mixin template Model()
 
         auto query = generateSelectQuery(s, where);
         string sql = query[0];
-
+        writeln(i"Executing query: $(sql)".text);
         string name = i"select_$(this.meta.tableName)_statement".text;
         Variant[] values = [];
         foreach (key; query[1 .. $])
@@ -332,8 +332,9 @@ private:
                 {
                     continue;
                 }
+                 import postgres._internal.helpers : toSnakeCase;
 
-                setClause ~= i" $(col) = $$(pos),".text;
+                setClause ~= i" $(toSnakeCase(col)) = $$(pos),".text;
                 pos++;
             }
         }
@@ -441,8 +442,9 @@ private:
 
         string tableName = this.meta.tableName;
 
-        string col = "*";
+        string col = i`$(tableName).*`.text;
 
+        // Basic include columns option handling
         if (s.cols.length > 0)
         {
             import std.algorithm : map;
@@ -452,6 +454,7 @@ private:
 
         string[] cols = [];
         string[] joins = [];
+        // If another table is joined/included
         foreach (include; s.includes)
         {
 

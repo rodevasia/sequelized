@@ -46,6 +46,8 @@ class Postgres
         else
         {
             query("SET NAMES 'utf8'");
+            import std.stdio:writeln;
+            writeln("Connected to database");
         }
     }
 
