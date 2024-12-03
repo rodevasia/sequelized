@@ -1,15 +1,15 @@
-module postgres.model;
+module sequalized.core;
 
 import std.stdio;
-import postgres._internal.consts;
+import sequalized.utils;
 import std.traits;
 import std.conv;
-import postgres._internal.exceptions;
+import sequalized.error_handlers;
 import core.stdcpp.type_traits;
 import core.cpuid;
 import std.variant;
-import postgres.implementation.core : Postgres, QueryResult;
-import postgres.implementation.exception;
+import sequalized.pg.connection : Postgres, QueryResult;
+import sequalized.error_handlers : PGSqlException;
 import std.meta : Repeat;
 import std.typecons : Tuple;
 import std.string;
@@ -25,7 +25,7 @@ mixin template Model()
     this(Postgres m)
     {
         this.manager = m;
-        // this.logging = loggin;
+        // this.logging = logging;
         this.generateMeta();
     }
 
@@ -40,12 +40,12 @@ mixin template Model()
 
             string query = syncQueryGenerator();
 
-            writeln(i"Executing query: $(query)".text);
+            writeln("Executing query: " ~ query);
 
             auto r = this.manager.query(query);
 
             // Need to fix the logging implementation based on NOTICES, WARNINGS
-            string log = i"Table `$(this.meta.tableName)` created successfully".text;
+            string log = "Table" ~ this.meta.tableName ~ "created successfully";
             writeln(log);
         }
         catch (Exception e)
@@ -65,10 +65,10 @@ mixin template Model()
             import std.typecons;
 
             auto query = insertQueryGenerator();
-            writeln(i"Executing query: $(query[0])".text);
+            writeln("Executing query:" ~ query[0]);
             string sql = query[0];
 
-            string name = i"insert_$(this.meta.tableName)_statement".text;
+            string name = "insert_" ~ this.meta.tableName ~ "_statement";
 
             QueryResult re = this.manager.executePreparedStatement(name, sql, query[1]);
 
@@ -109,13 +109,13 @@ mixin template Model()
         {
             foreach (idx, _; where)
             {
-                assert(to!string(where[idx]) == "postgres._internal.consts.WhereClause", "Invalid where clause");
+                assert(to!string(where[idx]) == "sequalized.utils.WhereClause", "Invalid where clause");
             }
         }
         auto query = updateQueryGenerator(sep, where[0 .. $]);
         string sql = query[0];
 
-        string prepareStmtName = i"update_$(this.meta.tableName)_stmt".text;
+        string prepareStmtName = "update_" ~ (this.meta.tableName) ~ "_stmt";
         Variant[] values = query[1];
         foreach (key; query[2 .. $])
         {
@@ -137,7 +137,7 @@ mixin template Model()
     /// 
     /// Params:
     ///   where = WhereClause
-    ///  Function to destory the model fromthe table.
+    ///  Function to destroy the model from the table.
     /// 
     auto destroy(WhereClause...)(WhereClause where)
     {
@@ -150,13 +150,13 @@ mixin template Model()
         {
             foreach (idx, _; where)
             {
-                assert(to!string(where[idx]) == "postgres._internal.consts.WhereClause", "Invalid where clause");
+                assert(to!string(where[idx]) == "sequalized.utils.WhereClause", "Invalid where clause");
             }
         }
-        auto query = distroyQueryGenerator(s, where[0 .. $]);
+        auto query = destroyQueryGenerator(s, where[0 .. $]);
         string sql = query[0];
 
-        string prepareStmtName = i"delete_$(this.meta.tableName)_stmt".text;
+        string prepareStmtName = "delete_" ~ (this.meta.tableName) ~ "_stmt";
         Variant[] values = [];
         foreach (key; query[1 .. $])
         {
@@ -176,8 +176,8 @@ mixin template Model()
 
         auto query = generateSelectQuery(s, where);
         string sql = query[0];
-        writeln(i"Executing query: $(sql)".text);
-        string name = i"select_$(this.meta.tableName)_statement".text;
+        writeln("Executing query: " ~ sql);
+        string name = "select_" ~ (this.meta.tableName) ~ "_statement";
         Variant[] values = [];
         foreach (key; query[1 .. $])
         {
@@ -202,7 +202,7 @@ private:
         import std.algorithm : canFind;
         import std.json;
 
-        string q = i`INSERT INTO "$(this.meta.tableName)" (`.text;
+        string q = `INSERT INTO "` ~ (this.meta.tableName) ~ `" (`;
         string column = "";
         // auto colObject = this.meta.columns.object;
         string values = "";
@@ -219,7 +219,7 @@ private:
             {
 
                 if (is(typeof(member) == string)
-                    && (i"$(this.tupleof[index])".text == ""))
+                    && ("" ~ (this.tupleof[index]) ~ "" == ""))
                 {
                     continue;
                 }
@@ -236,29 +236,29 @@ private:
                         || is(typeof(member) == double)
                         || is(typeof(member) == real)
                         || is(typeof(member) == bool)
-                    ) && (i"$(this.tupleof[index])".text == "0"))
+                    ) && ("" ~ (this.tupleof[index]) ~ "" == "0"))
                 {
                     continue;
                 }
-                import postgres._internal.helpers : toSnakeCase;
+                import sequalized.helpers : toSnakeCase;
 
-                column ~= i"$(toSnakeCase(col)), ".text;
-                values ~= i" $$(argIndex),".text;
+                column ~= "" ~ (toSnakeCase(col)) ~ ", ";
+                values ~= " $" ~ (argIndex) ~ ",";
                 argIndex++;
                 availableIndices ~= index;
             }
         }
         if (column.length == 0)
         {
-            import postgres._internal.exceptions : QueryGeneratorException;
+            import sequalized.error_handlers : QueryGeneratorException;
 
             throw new QueryGeneratorException("No columns to insert");
         }
         else
         {
-            // q = q ~ column[0 .. $ - 2] ~ ") VALUES (" ~ values[0 .. $ - 1] ~ ") RETURNING ;";
-            q = q ~ i"$(column[0 .. $ - 2])) VALUES ( $(values[0 .. $ - 1]) ) RETURNING $(this.meta.primaryKey);"
-                .text;
+            q = q ~ column[0 .. $ - 2] ~ ") VALUES (" ~ values[0 .. $ - 1] ~ ") RETURNING " ~ this.meta.primaryKey ~ ";"; // @suppress(dscanner.style.long_line)
+            // q = q ~ "$(column[0 .. $ - 2])) VALUES ( $(values[0 .. $ - 1]) ) RETURNING $(this.meta.primaryKey);"
+            // .text;
         }
 
         auto t = this.tupleof;
@@ -290,7 +290,7 @@ private:
 
         string tableName = this.meta.tableName;
         string primaryKey = this.meta.primaryKey;
-        string q = i`UPDATE "$(tableName)" SET `.text;
+        string q = `UPDATE "` ~ (tableName) ~ `" SET `;
 
         string setClause = "";
         string fromClause = "";
@@ -311,7 +311,7 @@ private:
                 && !canFind!(a => a == col)(autoIncrementals))
             {
                 if (is(typeof(member) == string)
-                    && (i"$(this.tupleof[index])".text == ""))
+                    && ("" ~ (this.tupleof[index]) ~ "" == ""))
                 {
                     continue;
                 }
@@ -328,20 +328,20 @@ private:
                         || is(typeof(member) == double)
                         || is(typeof(member) == real)
                         || is(typeof(member) == bool)
-                    ) && (i"$(this.tupleof[index])".text == "0"))
+                    ) && ("" ~ (this.tupleof[index]) ~ "" == "0"))
                 {
                     continue;
                 }
-                 import postgres._internal.helpers : toSnakeCase;
+                import sequalized.helpers : toSnakeCase;
 
-                setClause ~= i" $(toSnakeCase(col)) = $$(pos),".text;
+                setClause ~= " " ~ (toSnakeCase(col)) ~ " = $$(pos),";
                 pos++;
             }
         }
 
         if (setClause.length == 0)
         {
-            import postgres._internal.exceptions : QueryGeneratorException;
+            import sequalized.error_handlers : QueryGeneratorException;
 
             throw new QueryGeneratorException("No columns to update");
         }
@@ -361,7 +361,7 @@ private:
         // Optional FROM clause
         if (fromClause.length > 0)
         {
-            q ~= i" FROM $(fromClause)".text;
+            q ~= " FROM " ~ (fromClause);
         }
 
         // Optional WHERE clause
@@ -371,7 +371,7 @@ private:
             auto whereClause = generateWhereClause(this.meta.tableName, sep, pos, where[0 .. $]);
 
             string whereQuery = whereClause[0];
-            q ~= i" WHERE $(whereQuery)".text;
+            q ~= " WHERE " ~ (whereQuery);
             q ~= " RETURNING CASE WHEN xmax IS NOT NULL THEN true ELSE false END AS updated;";
 
             return tuple(q) ~ valuesTuple ~ tuple(whereClause[1 .. $]);
@@ -387,7 +387,7 @@ private:
         return tuple(q) ~ valuesTuple ~ a;
     }
 
-    auto distroyQueryGenerator(WhereClause...)(Seperater s, WhereClause where)
+    auto destroyQueryGenerator(WhereClause...)(Seperater s, WhereClause where)
     {
         import std.conv;
         import std.json;
@@ -396,13 +396,13 @@ private:
 
         string tableName = this.meta.tableName;
         string primaryKey = this.meta.primaryKey;
-        string q = i`DELETE FROM "$(tableName)"`.text;
+        string q = `DELETE FROM "` ~ (tableName) ~ `"`;
 
         if (where.length > 0)
         {
             auto whereClause = generateWhereClause(this.meta.tableName, s, 1, where[0 .. $]);
             string whereQuery = whereClause[0];
-            q ~= i" WHERE $(whereQuery)".text;
+            q ~= " WHERE " ~ (whereQuery);
             return tuple(q) ~ tuple(whereClause[1 .. $]);
         }
         Tuple!(Repeat!(where.length, string)) a;
@@ -413,7 +413,7 @@ private:
     {
         import std.conv;
 
-        string q = i`CREATE TABLE IF NOT EXISTS "$(this.meta.tableName)" (`.text;
+        string q = `CREATE TABLE IF NOT EXISTS "` ~ (this.meta.tableName) ~ `" (`;
         string column = "";
         auto colObject = this.meta.columns.object;
         import std.algorithm;
@@ -421,10 +421,10 @@ private:
         foreach (key, value; colObject)
         {
 
-            string col = i`$(key) $(value["type"].str)$(value["properties"].str)`.text;
+            string col = (key) ~ (value["type"].str) ~ (value["properties"].str);
             if ("references" in value.object)
             {
-                col ~= i`, $(value.object["references"].str)`.text;
+                col ~= `, ` ~ (value.object["references"].str);
             }
             column ~= col ~ ", ";
         }
@@ -442,14 +442,14 @@ private:
 
         string tableName = this.meta.tableName;
 
-        string col = i`$(tableName).*`.text;
+        string col = tableName ~ `.*`;
 
         // Basic include columns option handling
         if (s.cols.length > 0)
         {
             import std.algorithm : map;
 
-            col = s.cols.map!(a => i`$(tableName).$(a)`.text).join(",");
+            col = s.cols.map!(a => (tableName) ~ `.` ~ (a)).join(",");
         }
 
         string[] cols = [];
@@ -467,12 +467,13 @@ private:
                 import std.array;
 
                 auto icols = include.options.cols.map!(
-                    a => i`$(includeTable).$(a) AS "$(includeTable).$(a)"`.text);
+                    a => (
+                        includeTable) ~ `.` ~ (a) ~ ` AS ` ~ `"` ~ (includeTable) ~ `.` ~ (a) ~ `"`);
                 cols ~= icols.join(",");
             }
             else
             {
-                cols ~= i`$(includeTable).*`.text;
+                cols ~= (includeTable) ~ `.*`;
             }
 
             // auto relationKey = meta.relations[i"$(tableName).$(includeTable)".text].str;
@@ -482,14 +483,14 @@ private:
             string relationKey = "";
             foreach (key; meta.relations.array)
             {
-                if (canFind(key.object.keys, i"$(tableName).$(includeTable)".text))
+                if (canFind(key.object.keys, (tableName) ~ "." ~ (includeTable)))
                 {
-                    relationKey = key.object[i"$(tableName).$(includeTable)".text].str;
+                    relationKey = key.object[(tableName) ~ "." ~ (includeTable)].str;
                 }
             }
             string[] referenceColumns = relationKey.split(".");
-            joins ~= i` LEFT JOIN "$(includeTable)" ON "$(tableName)".$(referenceColumns[0]) = "$(includeTable)".$(referenceColumns[1])`
-                .text;
+            joins ~= ` LEFT JOIN "` ~ (includeTable) ~ `" ON "` ~ (tableName) ~ `".` ~ (
+                referenceColumns[0]) ~ ` = "` ~ (includeTable) ~ `".` ~ (referenceColumns[1]);
 
         }
         import std.array;
@@ -499,13 +500,13 @@ private:
         {
             col ~= "," ~ incCols;
         }
-        string q = i`SELECT $(col) FROM "$(tableName)"`.text;
+        string q = `SELECT ` ~ (col) ~ ` FROM "` ~ (tableName) ~ `"`;
         q ~= joins.join(" ");
         if (where.length > 0)
         {
-            auto whereClause = generateWhereClause(this.meta.tableName, s.seperator, 1, where[0 .. $]);
+            auto whereClause = generateWhereClause(this.meta.tableName, s.separator, 1, where[0 .. $]);
             string whereQuery = whereClause[0];
-            q ~= i" WHERE $(whereQuery)".text;
+            q ~= " WHERE " ~ (whereQuery);
             return tuple(q) ~ tuple(whereClause[1 .. $]);
         }
 
@@ -526,7 +527,7 @@ private:
         // this.meta.columns = [];
         static foreach (field; typeof(this).tupleof)
         {
-            import postgres._internal.helpers : toSnakeCase;
+            import sequalized.helpers : toSnakeCase;
 
             if (!is(typeof(field) == Postgres)
                 && !is(typeof(field) == ModelMetaData))
@@ -546,8 +547,8 @@ private:
                         import std.conv;
                         import std.json;
 
-                        string objectRef = i`{"type":"$(cast(string)attr.type)","properties":""}`
-                            .text;
+                        string objectRef = `{"type":"` ~ (
+                            cast(string) attr.type) ~ `,"properties":""}`;
                         this.meta.columns[tbc] = parseJSON(objectRef);
                     }
 
@@ -585,13 +586,13 @@ private:
                         if (isText)
                         {
                             string propString = this.meta.columns[tbc]["properties"].str;
-                            propString ~= i" DEFAULT '$(attr.defaultValue)'".text;
+                            propString ~= " DEFAULT '" ~ (attr.defaultValue) ~ "'".text;
                             this.meta.columns[tbc]["properties"] = propString;
                         }
-                        else // @suppress(dscanner.bugs.if_else_same)
+                        else
                         {
                             string propString = this.meta.columns[tbc]["properties"].str;
-                            propString ~= i" DEFAULT $(attr.defaultValue)".text;
+                            propString ~= " DEFAULT " ~ (attr.defaultValue);
                             this.meta.columns[tbc]["properties"] = propString;
                         }
                     }
@@ -612,12 +613,12 @@ private:
                         import std.json;
 
                         JSONValue j;
-                        j[i"$(tableName).$(attr.table)".text] = i"$(tbc).$(attr.referenceKey)".text;
+                        j[(tableName) ~ "." ~ (attr.table)] = (tbc) ~ "." ~ (attr.referenceKey);
 
                         this.meta.relations.array ~= j;
 
-                        this.meta.columns[tbc].object["references"] = i`FOREIGN KEY ($(tbc)) REFERENCES "$(attr.table)"($(attr.referenceKey))`
-                            .text;
+                        this.meta.columns[tbc].object["references"] = `FOREIGN KEY (` ~ (
+                            tbc) ~ `) REFERENCES "` ~ (attr.table) ~ `"(` ~ (attr.referenceKey) ~ `)`;
 
                     }
 
@@ -632,7 +633,7 @@ private:
 
             this.meta.primaryKey = "id";
             this.meta.columns["id"] = parseJSON(
-                i`{"type":"SERIAL","properties":" PRIMARY KEY"}`.text);
+                `{"type":"SERIAL","properties":" PRIMARY KEY"}`);
         }
     }
 

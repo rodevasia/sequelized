@@ -1,10 +1,15 @@
-module postgres.implementation.exception;
+module sequalized.error_handlers;
 
-public:
+import sequalized.pg.implementationc;
 import std.conv;
 
-private import postgres.implementation.implementationc;
-
+class QueryGeneratorException : Exception
+{
+    this(string message)
+    {
+        super(message);
+    }
+}
 
 class PGSqlException : Exception
 {
@@ -19,9 +24,10 @@ class PGSqlException : Exception
                     .PQSHOW_CONTEXT_ALWAYS);
             char* s = PQresultVerboseErrorMessage(res, PGVerbosity.PQERRORS_SQLSTATE, PGContextVisibility
                     .PQSHOW_CONTEXT_ALWAYS);
-           string ss = to!string(c);
-           import std.string:split;
-           this.code = to!string(ss.split(':')[1]);
+            string ss = to!string(c);
+            import std.string : split;
+
+            this.code = to!string(ss.split(':')[1]);
 
             this.sqlState = to!string(s);
         }
@@ -31,7 +37,6 @@ class PGSqlException : Exception
         super(this.message);
     }
 }
-
 
 class DuplicateKeyException : Exception
 {

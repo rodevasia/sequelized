@@ -1,4 +1,4 @@
-module postgres.implementation.implementationc;
+module sequalized.pg.implementationc;
 
 extern (C)
 {
@@ -11,7 +11,7 @@ extern (C)
     }
 
     void PQfinish(PGconn*);
-    
+
     PGconn* PQconnectdb(const char*);
 
     int PQstatus(PGconn*); // FIXME check return value

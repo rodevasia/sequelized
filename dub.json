@@ -1,5 +1,7 @@
 {
-	"authors": ["Robert Devasia"],
+	"authors": [
+		"Robert Devasia"
+	],
 	"copyright": "Copyright © 2024, Robert Devasia",
 	"description": "A simple postgres orm ",
 	"license": "MIT",

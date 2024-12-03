@@ -1,6 +1,4 @@
-module postgres._internal.helpers;
-
-
+module sequalized.helpers;
 
 string toSnakeCase(string str)
 {
@@ -18,4 +16,3 @@ string toSnakeCase(string str)
     }
     return snakeCase;
 }
-

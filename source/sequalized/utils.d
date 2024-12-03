@@ -1,9 +1,10 @@
-module postgres._internal.consts;
+module sequalized.utils;
+
 import std.typecons;
 import std.json;
 public import std.stdio;
 
-string[] reserveredWords = [
+string[] reservedWords = [
     "insert", "update", "delete", "findOne", "where", "findAll",
 ];
 
@@ -93,7 +94,6 @@ enum DataTypes : string
     BYTEA_ARRAY_2D = "BYTEA[][]"
 }
 
-
 enum DefaultDateType
 {
     date = "CURRENT_DATE",
@@ -104,8 +104,7 @@ enum DefaultDateType
 import std.array : join;
 import std.algorithm : map;
 import std.variant;
-import postgres._internal.helpers;
-import phobos.sys.meta;
+import sequalized.helpers;
 
 class WhereClause
 {
@@ -313,7 +312,8 @@ auto generateWhereClause(WhereClause...)(string tableName, Seperater separator =
 
     foreach (i, condition; args)
     {
-        c ~= `"`~tableName~`"`~"."~condition.col ~ " " ~ condition.symbol ~ " " ~ "$" ~ to!string(count) ~ " ";
+        c ~= `"` ~ tableName ~ `"` ~ "." ~ condition.col ~ " " ~ condition.symbol ~ " " ~ "$" ~ to!string(
+            count) ~ " ";
         a[i] = condition.val;
         auto tup = condition.tupleof;
 
@@ -349,7 +349,7 @@ struct SelectOptions
 {
     string[] cols;
     Includes[] includes;
-    Seperater seperator = Seperater.AND;
+    Seperater separator = Seperater.AND;
     int limit;
     int offset;
     string orderBy;
@@ -358,8 +358,6 @@ struct SelectOptions
     string having;
     // SelectOptions exclude;
 }
-
-import postgres.model;
 
 struct Includes
 {

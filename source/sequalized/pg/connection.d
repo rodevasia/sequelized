@@ -1,16 +1,39 @@
-module postgres.implementation.core;
+module sequalized.pg.connection;
 
 import std.string;
 
-public:
 import std.conv;
 import std.stdio;
-
-private import postgres.implementation.implementationc;
-
-import postgres._internal.connection;
-import postgres.implementation.exception : PGSqlException;
+import sequalized.pg.implementationc;
 import std.variant;
+import sequalized.error_handlers;
+
+struct DatabaseConnectionOption
+{
+
+    // STRING_CONNECTION_OPTION_MAP 
+    string application_name;
+
+    string client_encoding;
+    string database;
+    string host;
+    string password;
+    string user;
+    // BOOLEAN_CONNECTION_OPTION_MAP
+    bool binary = false;
+    bool keepAlive = false;
+    bool ssl = false;
+
+    // NUMBER_CONNECTION_OPTION_MAP
+    long port;
+    long statement_timeout;
+    long query_timeout;
+    long keepAliveInitialDelayMillis;
+    long idle_in_transaction_session_timeout;
+    long connectionTimeoutMillis;
+    long lock_timeout;
+    this(){}
+}
 
 class Postgres
 {
@@ -19,14 +42,19 @@ class Postgres
     private string connection;
     this(DatabaseConnectionOption dco)
     {
-        connection = i"host=$(dco.host) 
-                              port=$(dco.port) 
-                              dbname=$(dco.database) 
-                              user=$(dco.user)
-                              password=$(dco.password) 
-                              client_encoding=$(dco.client_encoding?dco.client_encoding:`utf8`) 
-                              application_name=$(dco.application_name)
-                              sslmode=$(dco.ssl ? `require` : `disable`)".text;
+        connection = "host=" ~ (dco.host) ~
+            " port=" ~ (
+                dco.port.to!string) ~
+            "dbname=" ~ (
+                dco.database) ~
+            "user=" ~ (dco.user) ~
+            "password=" ~ (
+                dco.password) ~
+            "client_encoding=" ~ (dco.client_encoding ? dco.client_encoding
+                    : `utf8`) ~
+            "application_name=" ~ (
+                dco.application_name) ~
+            "sslmode=" ~ (dco.ssl ? `require` : `disable`);
         connect(connection);
     }
 
@@ -46,7 +74,8 @@ class Postgres
         else
         {
             query("SET NAMES 'utf8'");
-            import std.stdio:writeln;
+            import std.stdio : writeln;
+
             writeln("Connected to database");
         }
     }
@@ -94,7 +123,7 @@ class Postgres
 
         }
 
-        //  paramTypes set to null; for postgres to infer types; Need fix if project become advanceds
+        //  paramTypes set to null; for postgres to infer types; Need fix if project become advanced
         PGresult* pres = PQprepare(conn, toStringz(name), toStringz(sql), argsStrings.length, null);
         int press = PQresultStatus(pres);
         if (press != PGRES_TUPLES_OK
@@ -106,10 +135,10 @@ class Postgres
         {
             PGresult* res = PQexecPrepared(conn, toStringz(name),
                 argsStrings.length.to!int, argsStrings.ptr, null, null, 0);
-            int ress = PQresultStatus(res);
-            query(i"DEALLOCATE $(name)".text);
-            if (ress != PGRES_TUPLES_OK
-                && ress != PGRES_COMMAND_OK)
+            int res_s = PQresultStatus(res);
+            query("DEALLOCATE" ~ (name));
+            if (res_s != PGRES_TUPLES_OK
+                && res_s != PGRES_COMMAND_OK)
                 throw new PGSqlException(conn, res);
 
             return new QueryResult(res);
@@ -189,7 +218,3 @@ class QueryResult
 
     }
 }
-
-// struct Row {
-
-// }
