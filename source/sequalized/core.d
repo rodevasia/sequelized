@@ -7,9 +7,6 @@ import std.conv;
 import sequalized.error_handlers;
 import core.stdcpp.type_traits;
 import core.cpuid;
-import std.variant;
-import sequalized.pg.connection : Postgres, QueryResult;
-import sequalized.error_handlers : PGSqlException;
 import std.meta : Repeat;
 import std.typecons : Tuple;
 import std.string;
@@ -21,6 +18,10 @@ interface Schema
 
 mixin template Model()
 {
+    import sequalized.pg.connection : Postgres, QueryResult;
+    import sequalized.error_handlers : PGSqlException, DuplicateKeyException;
+    import std.variant;
+    import core.time;
 
     this(Postgres m)
     {
@@ -45,7 +46,7 @@ mixin template Model()
             auto r = this.manager.query(query);
 
             // Need to fix the logging implementation based on NOTICES, WARNINGS
-            string log = "Table" ~ this.meta.tableName ~ "created successfully";
+            string log = "Table " ~ this.meta.tableName ~ " created successfully";
             writeln(log);
         }
         catch (Exception e)
@@ -54,7 +55,7 @@ mixin template Model()
         }
     }
 
-    auto insert()
+    int insert()
     {
 
         try
@@ -69,7 +70,7 @@ mixin template Model()
             string sql = query[0];
 
             string name = "insert_" ~ this.meta.tableName ~ "_statement";
-
+            writeln(query[1]);
             QueryResult re = this.manager.executePreparedStatement(name, sql, query[1]);
 
             int result = re.rows[0]["id"].to!int;
@@ -82,8 +83,6 @@ mixin template Model()
 
             if (e.code.strip() == "23505")
             {
-                import postgres.implementation.exception : DuplicateKeyException;
-
                 throw new DuplicateKeyException(e.message);
             }
             else
@@ -119,7 +118,7 @@ mixin template Model()
         Variant[] values = query[1];
         foreach (key; query[2 .. $])
         {
-            values ~= key.to!Variant;
+            values ~= Variant(key);
         }
         auto re = this.manager.executePreparedStatement(prepareStmtName, sql, values);
 
@@ -146,6 +145,10 @@ mixin template Model()
 
     void destroyWith(WhereClause...)(Seperater s, WhereClause where)
     {
+        import std.conv;
+        import std.meta;
+        import std.typecons;
+
         if (where.length > 0)
         {
             foreach (idx, _; where)
@@ -157,10 +160,10 @@ mixin template Model()
         string sql = query[0];
 
         string prepareStmtName = "delete_" ~ (this.meta.tableName) ~ "_stmt";
-        Variant[] values = [];
+        Variant[] values;
         foreach (key; query[1 .. $])
         {
-            values ~= key.to!Variant;
+            values ~= Variant(key);
         }
 
         this.manager.executePreparedStatement(prepareStmtName, sql, values);
@@ -217,9 +220,10 @@ private:
             if (!canFind!(a => a == col)(reservedMembers)
                 && !canFind!(a => a == col)(autoIncrementals))
             {
+                import std.conv;
 
                 if (is(typeof(member) == string)
-                    && ("" ~ (this.tupleof[index]) ~ "" == ""))
+                    && ((this.tupleof[index].to!string) == ""))
                 {
                     continue;
                 }
@@ -236,14 +240,14 @@ private:
                         || is(typeof(member) == double)
                         || is(typeof(member) == real)
                         || is(typeof(member) == bool)
-                    ) && ("" ~ (this.tupleof[index]) ~ "" == "0"))
+                    ) && ("" ~ (this.tupleof[index].to!string) ~ "" == "0"))
                 {
                     continue;
                 }
                 import sequalized.helpers : toSnakeCase;
 
                 column ~= "" ~ (toSnakeCase(col)) ~ ", ";
-                values ~= " $" ~ (argIndex) ~ ",";
+                values ~= " $" ~ (argIndex.to!string) ~ ",";
                 argIndex++;
                 availableIndices ~= index;
             }
@@ -263,6 +267,8 @@ private:
 
         auto t = this.tupleof;
         Tuple!(typeof(t)) tup = tuple(t);
+        import std.variant;
+        import std.traits : isDynamicArray;
 
         auto setValue = tup.slice!(3, tup.length);
         Variant[] valuesTuple = [];
@@ -271,7 +277,17 @@ private:
             string v = val.to!string;
             if (v != "0" && v != "" && v != null)
             {
+                if (isDynamicArray!(typeof(val)) && !is(typeof(val) == string) && !is(
+                        typeof(val) == enum))
+                {
+                    import std.regex;
+                    string pgArrVal = "{" ~val.to!string ~ "}";
+                    auto pattern = regex(`[\[\]"]`);
+                    valuesTuple ~= replaceAll(pgArrVal, pattern, "").to!Variant;
+                }else{
+
                 valuesTuple ~= val.to!Variant;
+                }
             }
         }
 
@@ -311,7 +327,7 @@ private:
                 && !canFind!(a => a == col)(autoIncrementals))
             {
                 if (is(typeof(member) == string)
-                    && ("" ~ (this.tupleof[index]) ~ "" == ""))
+                    && ("" ~ (this.tupleof[index].to!string) ~ "" == ""))
                 {
                     continue;
                 }
@@ -328,13 +344,13 @@ private:
                         || is(typeof(member) == double)
                         || is(typeof(member) == real)
                         || is(typeof(member) == bool)
-                    ) && ("" ~ (this.tupleof[index]) ~ "" == "0"))
+                    ) && ("" ~ (this.tupleof[index].to!string) ~ "" == "0"))
                 {
                     continue;
                 }
                 import sequalized.helpers : toSnakeCase;
 
-                setClause ~= " " ~ (toSnakeCase(col)) ~ " = $$(pos),";
+                setClause ~= " " ~ (toSnakeCase(col)) ~ " = $" ~ (pos.to!string) ~ ",";
                 pos++;
             }
         }
@@ -421,7 +437,7 @@ private:
         foreach (key, value; colObject)
         {
 
-            string col = (key) ~ (value["type"].str) ~ (value["properties"].str);
+            string col = (key) ~ " " ~ (value["type"].str) ~ (value["properties"].str);
             if ("references" in value.object)
             {
                 col ~= `, ` ~ (value.object["references"].str);
@@ -548,7 +564,7 @@ private:
                         import std.json;
 
                         string objectRef = `{"type":"` ~ (
-                            cast(string) attr.type) ~ `,"properties":""}`;
+                            cast(string) attr.type) ~ `","properties":""}`;
                         this.meta.columns[tbc] = parseJSON(objectRef);
                     }
 

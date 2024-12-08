@@ -32,7 +32,6 @@ struct DatabaseConnectionOption
     long idle_in_transaction_session_timeout;
     long connectionTimeoutMillis;
     long lock_timeout;
-    this(){}
 }
 
 class Postgres
@@ -45,16 +44,16 @@ class Postgres
         connection = "host=" ~ (dco.host) ~
             " port=" ~ (
                 dco.port.to!string) ~
-            "dbname=" ~ (
+            " dbname=" ~ (
                 dco.database) ~
-            "user=" ~ (dco.user) ~
-            "password=" ~ (
+            " user=" ~ (dco.user) ~
+            " password=" ~ (
                 dco.password) ~
-            "client_encoding=" ~ (dco.client_encoding ? dco.client_encoding
+            " client_encoding=" ~ (dco.client_encoding ? dco.client_encoding
                     : `utf8`) ~
-            "application_name=" ~ (
+            " application_name=" ~ (
                 dco.application_name) ~
-            "sslmode=" ~ (dco.ssl ? `require` : `disable`);
+            " sslmode=" ~ (dco.ssl ? `require` : `disable`);
         connect(connection);
     }
 
@@ -136,7 +135,7 @@ class Postgres
             PGresult* res = PQexecPrepared(conn, toStringz(name),
                 argsStrings.length.to!int, argsStrings.ptr, null, null, 0);
             int res_s = PQresultStatus(res);
-            query("DEALLOCATE" ~ (name));
+            query("DEALLOCATE " ~ (name));
             if (res_s != PGRES_TUPLES_OK
                 && res_s != PGRES_COMMAND_OK)
                 throw new PGSqlException(conn, res);
@@ -153,7 +152,7 @@ class QueryResult
 
     private int rowSize;
     private int colSize;
-    string[string][size_t] rows;
+    string[string][] rows;
     private PGresult* res;
 
     this(PGresult* r)
@@ -213,7 +212,7 @@ class QueryResult
                 r[to!string(PQfname(res, i))] = a;
 
             }
-            rows[j] = r;
+            rows ~= r;
         }
 
     }
