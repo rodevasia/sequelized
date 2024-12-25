@@ -70,7 +70,7 @@ mixin template Model()
             string sql = query[0];
 
             string name = "insert_" ~ this.meta.tableName ~ "_statement";
-            writeln(query[1]);
+
             QueryResult re = this.manager.executePreparedStatement(name, sql, query[1]);
 
             int result = re.rows[0]["id"].to!int;
@@ -281,12 +281,15 @@ private:
                         typeof(val) == enum))
                 {
                     import std.regex;
-                    string pgArrVal = "{" ~val.to!string ~ "}";
+
+                    string pgArrVal = "{" ~ val.to!string ~ "}";
                     auto pattern = regex(`[\[\]"]`);
                     valuesTuple ~= replaceAll(pgArrVal, pattern, "").to!Variant;
-                }else{
+                }
+                else
+                {
 
-                valuesTuple ~= val.to!Variant;
+                    valuesTuple ~= val.to!Variant;
                 }
             }
         }
@@ -365,12 +368,27 @@ private:
         {
             q ~= setClause[0 .. $ - 1]; // Remove trailing comma
         }
+        import std.traits : isDynamicArray;
+
         Variant[] valuesTuple = [];
         foreach (key; setValue)
         {
             if (key.to!string != "0" && key.to!string != "" && key.to!string != null)
             {
-                valuesTuple ~= key.to!Variant;
+                if (isDynamicArray!(typeof(key)) && !is(typeof(key) == string) && !is(
+                        typeof(key) == enum))
+                {
+                    import std.regex;
+
+                    string pgArrVal = "{" ~ key.to!string ~ "}";
+                    auto pattern = regex(`[\[\]"]`);
+                    valuesTuple ~= replaceAll(pgArrVal, pattern, "").to!Variant;
+                }
+                else
+                {
+
+                    valuesTuple ~= key.to!Variant;
+                }
             }
 
         }

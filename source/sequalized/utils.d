@@ -189,6 +189,11 @@ class WhereClause
         return new WhereClause("LIKE", column, "'" ~ pattern ~ "'");
     }
 
+    static WhereClause ilike(string column, string pattern)
+    {
+        return new WhereClause("iLIKE", column, "'" ~ pattern ~ "'");
+    }
+
     static WhereClause notLike(string column, string pattern)
     {
         return new WhereClause("NOT LIKE", column, "'" ~ pattern ~ "'");
